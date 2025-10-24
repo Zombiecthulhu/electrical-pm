@@ -1,7 +1,6 @@
 Password hard coded in the backend .env file?
 Material-UI Grid API - The grid componentapi has changed in newer versions
-
-
+Take out CORS being more permissive for mobile before producton
 
 ***************************************************
 backend npx prisma studio

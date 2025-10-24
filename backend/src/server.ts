@@ -26,10 +26,10 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// CORS configuration
+// Update CORS to be more permissive for mobile testing
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: true, // Allow all origins for testing
     credentials: true,
   })
 );
