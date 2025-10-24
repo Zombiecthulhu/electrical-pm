@@ -6,7 +6,7 @@ import {
   Card,
   CardContent,
   Button,
-  Grid,
+  Grid2 as Grid,
 } from '@mui/material';
 import { useAuthStore } from '../store';
 
