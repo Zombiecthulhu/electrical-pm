@@ -62,15 +62,13 @@ app.get('/health', (_req: Request, res: Response) => {
 // Mount API v1 routes
 app.use('/api/v1', apiRouter);
 
-// Additional API routes will be added to routes/index.ts
-// Example structure in routes/index.ts:
-// router.use('/auth', authRoutes);
-// router.use('/projects', projectRoutes);
-// router.use('/clients', clientRoutes);
-// router.use('/users', userRoutes);
-// router.use('/files', fileRoutes);
-// router.use('/daily-logs', dailyLogRoutes);
-// router.use('/quotes', quoteRoutes);
+// API routes are configured in routes/index.ts
+// Current routes:
+// - /api/v1/auth - Authentication routes
+// - /api/v1/admin - Admin user management routes (SUPER_ADMIN only)
+// - /api/v1/health - Health check routes
+// - /api/v1/projects - Project management routes
+// Additional routes will be added to routes/index.ts as needed
 
 // 404 handler
 app.use((_req: Request, res: Response) => {

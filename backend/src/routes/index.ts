@@ -39,11 +39,17 @@ router.get('/health', (_req, res) => {
 import authRoutes from './auth.routes';
 import adminRoutes from './admin.routes';
 import healthRoutes from './health.routes';
+import projectRoutes from './project.routes';
+import clientRoutes from './client.routes';
+import fileRoutes from './file.routes';
 
 // Mount route modules
 router.use('/auth', authRoutes);
 router.use('/admin', adminRoutes);
 router.use('/health', healthRoutes);
+router.use('/projects', projectRoutes);
+router.use('/clients', clientRoutes);
+router.use('/files', fileRoutes);
 
 // Additional route modules will be added here as they are created
 // Example:

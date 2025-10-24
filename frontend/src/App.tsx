@@ -5,7 +5,8 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { Box, Container, Typography, Button, Alert } from '@mui/material';
 import { api, ApiResponse } from './services';
 import { useAuthStore, useThemeStore } from './store';
-import { Login, Dashboard, UserManagement, Settings } from './pages';
+import { Login, Dashboard, UserManagement, Settings, FileManagement } from './pages';
+import { ProjectList, ProjectForm, ProjectDetail } from './pages/Projects';
 import { AppLayout } from './components/layout';
 import { createAppTheme } from './theme/theme';
 
@@ -100,6 +101,70 @@ function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <Settings />
+                </AppLayout>
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Projects Routes */}
+          <Route 
+            path="/projects" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ProjectList />
+                </AppLayout>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/projects/new" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ProjectForm />
+                </AppLayout>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/projects/:id" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ProjectDetail />
+                </AppLayout>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/projects/:id/edit" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ProjectForm />
+                </AppLayout>
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* File Management Routes */}
+          <Route 
+            path="/files" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <FileManagement />
+                </AppLayout>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/projects/:projectId/files" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <FileManagement />
                 </AppLayout>
               </ProtectedRoute>
             } 

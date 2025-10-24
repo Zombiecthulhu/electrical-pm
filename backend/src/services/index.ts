@@ -24,3 +24,12 @@ export { default as authService } from './auth.service';
 // Admin Service
 export * from './admin.service';
 
+// Project Service
+export * from './project.service';
+
+// Client Service
+export * from './client.service';
+
+// File Service
+export * from './file.service';
+

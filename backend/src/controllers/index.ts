@@ -16,3 +16,9 @@ export { default as authController } from './auth.controller';
 // Admin Controller
 export * from './admin.controller';
 
+// Project Controller
+export * from './project.controller';
+
+// Client Controller
+export * from './client.controller';
+

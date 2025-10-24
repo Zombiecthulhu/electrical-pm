@@ -22,7 +22,7 @@ export const healthCheck = async (req: Request, res: Response): Promise<void> =>
       timestamp: new Date().toISOString()
     });
 
-    successResponse(res, healthData, 'Server is healthy');
+    res.json(successResponse(healthData, 'Server is healthy'));
   } catch (error) {
     logger.error('Health check error', {
       error: error instanceof Error ? error.message : 'Unknown error',

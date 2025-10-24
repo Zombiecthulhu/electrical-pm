@@ -24,6 +24,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@mui/x-data-grid": "^8.15.0",
     "@prisma/client": "^5.7.0",
     "@types/cookie-parser": "^1.4.10",
     "bcrypt": "^5.1.1",

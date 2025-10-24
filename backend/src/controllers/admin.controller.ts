@@ -16,13 +16,13 @@ import { successResponse, errorResponse } from '../utils/response';
 /**
  * Create a new user (SUPER_ADMIN only)
  */
-export const createUserController = async (req: Request, res: Response): Promise<void> => {
+export const createUserController = async (req: Request, res: Response): Promise<Response | undefined> => {
   try {
     const adminUserId = req.user?.id;
     const ipAddress = req.ip || 'unknown';
 
     if (!adminUserId) {
-      errorResponse(res, 'Authentication required', 401);
+      return res.status(401).json(errorResponse('Authentication required', 'UNAUTHORIZED'));
       return;
     }
 
@@ -30,8 +30,7 @@ export const createUserController = async (req: Request, res: Response): Promise
 
     // Validate required fields
     if (!email || !password || !firstName || !lastName || !phone || !role) {
-      errorResponse(res, 'All fields are required', 400);
-      return;
+      return res.status(400).json(errorResponse('All fields are required', 'MISSING_FIELDS'));
     }
 
     const userData: CreateUserData = {
@@ -46,8 +45,7 @@ export const createUserController = async (req: Request, res: Response): Promise
     const result = await createUser(userData, adminUserId, ipAddress);
 
     if (!result.success) {
-      errorResponse(res, result.error || 'Failed to create user', 400);
-      return;
+      return res.status(400).json(errorResponse(result.error || 'Failed to create user', 'CREATE_USER_FAILED'));
     }
 
     logger.info('User created via admin controller', {
@@ -59,7 +57,7 @@ export const createUserController = async (req: Request, res: Response): Promise
       timestamp: new Date().toISOString()
     });
 
-    successResponse(res, { user: result.user }, 'User created successfully', 201);
+    return res.status(201).json(successResponse({ user: result.user }, 'User created successfully'));
   } catch (error) {
     logger.error('Create user controller error', {
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -68,19 +66,19 @@ export const createUserController = async (req: Request, res: Response): Promise
       timestamp: new Date().toISOString()
     });
 
-    errorResponse(res, 'Internal server error', 500);
+    return res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
   }
 };
 
 /**
  * Get all users (SUPER_ADMIN only)
  */
-export const getAllUsersController = async (req: Request, res: Response): Promise<void> => {
+export const getAllUsersController = async (req: Request, res: Response): Promise<Response | undefined> => {
   try {
     const adminUserId = req.user?.id;
 
     if (!adminUserId) {
-      errorResponse(res, 'Authentication required', 401);
+      return res.status(401).json(errorResponse('Authentication required', 'UNAUTHORIZED'));
       return;
     }
 
@@ -89,15 +87,13 @@ export const getAllUsersController = async (req: Request, res: Response): Promis
 
     // Validate pagination parameters
     if (page < 1 || limit < 1 || limit > 100) {
-      errorResponse(res, 'Invalid pagination parameters', 400);
-      return;
+      return res.status(400).json(errorResponse('Invalid pagination parameters', 'INVALID_PAGINATION'));
     }
 
     const result = await getAllUsers(adminUserId, page, limit);
 
     if (!result.success) {
-      errorResponse(res, result.error || 'Failed to retrieve users', 500);
-      return;
+      return res.status(500).json(errorResponse(result.error || 'Failed to retrieve users', 'RETRIEVE_USERS_FAILED'));
     }
 
     logger.info('Users retrieved via admin controller', {
@@ -110,15 +106,15 @@ export const getAllUsersController = async (req: Request, res: Response): Promis
       timestamp: new Date().toISOString()
     });
 
-    successResponse(res, {
+    return res.json(successResponse({
       users: result.users,
       pagination: {
         page,
         limit,
-        total: result.total,
+        total: result.total || 0,
         totalPages: Math.ceil((result.total || 0) / limit)
       }
-    }, 'Users retrieved successfully');
+    }, 'Users retrieved successfully'));
   } catch (error) {
     logger.error('Get all users controller error', {
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -127,25 +123,25 @@ export const getAllUsersController = async (req: Request, res: Response): Promis
       timestamp: new Date().toISOString()
     });
 
-    errorResponse(res, 'Internal server error', 500);
+    return res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
   }
 };
 
 /**
  * Get user by ID (SUPER_ADMIN only)
  */
-export const getUserByIdController = async (req: Request, res: Response): Promise<void> => {
+export const getUserByIdController = async (req: Request, res: Response): Promise<Response | undefined> => {
   try {
     const adminUserId = req.user?.id;
     const { id } = req.params;
 
     if (!adminUserId) {
-      errorResponse(res, 'Authentication required', 401);
+      return res.status(401).json(errorResponse('Authentication required', 'UNAUTHORIZED'));
       return;
     }
 
     if (!id) {
-      errorResponse(res, 'User ID is required', 400);
+      return res.status(400).json(errorResponse('User ID is required', 'MISSING_USER_ID'));
       return;
     }
 
@@ -153,8 +149,7 @@ export const getUserByIdController = async (req: Request, res: Response): Promis
 
     if (!result.success) {
       const statusCode = result.error === 'User not found' ? 404 : 500;
-      errorResponse(res, result.error || 'Failed to retrieve user', statusCode);
-      return;
+      return res.status(statusCode).json(errorResponse(result.error || 'Failed to retrieve user', 'RETRIEVE_USER_FAILED'));
     }
 
     logger.info('User retrieved via admin controller', {
@@ -164,7 +159,7 @@ export const getUserByIdController = async (req: Request, res: Response): Promis
       timestamp: new Date().toISOString()
     });
 
-    successResponse(res, { user: result.user }, 'User retrieved successfully');
+    return res.json(successResponse({ user: result.user }, 'User retrieved successfully'));
   } catch (error) {
     logger.error('Get user by ID controller error', {
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -174,26 +169,26 @@ export const getUserByIdController = async (req: Request, res: Response): Promis
       timestamp: new Date().toISOString()
     });
 
-    errorResponse(res, 'Internal server error', 500);
+    return res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
   }
 };
 
 /**
  * Update user (SUPER_ADMIN only)
  */
-export const updateUserController = async (req: Request, res: Response): Promise<void> => {
+export const updateUserController = async (req: Request, res: Response): Promise<Response | undefined> => {
   try {
     const adminUserId = req.user?.id;
     const { id } = req.params;
     const ipAddress = req.ip || 'unknown';
 
     if (!adminUserId) {
-      errorResponse(res, 'Authentication required', 401);
+      return res.status(401).json(errorResponse('Authentication required', 'UNAUTHORIZED'));
       return;
     }
 
     if (!id) {
-      errorResponse(res, 'User ID is required', 400);
+      return res.status(400).json(errorResponse('User ID is required', 'MISSING_USER_ID'));
       return;
     }
 
@@ -201,8 +196,7 @@ export const updateUserController = async (req: Request, res: Response): Promise
 
     // Validate that at least one field is provided for update
     if (!email && !firstName && !lastName && !phone && !role && isActive === undefined) {
-      errorResponse(res, 'At least one field must be provided for update', 400);
-      return;
+      return res.status(400).json(errorResponse('At least one field must be provided for update', 'MISSING_UPDATE_FIELDS'));
     }
 
     const userData: UpdateUserData = {};
@@ -217,8 +211,7 @@ export const updateUserController = async (req: Request, res: Response): Promise
 
     if (!result.success) {
       const statusCode = result.error === 'User not found' ? 404 : 400;
-      errorResponse(res, result.error || 'Failed to update user', statusCode);
-      return;
+      return res.status(statusCode).json(errorResponse(result.error || 'Failed to update user', 'UPDATE_USER_FAILED'));
     }
 
     logger.info('User updated via admin controller', {
@@ -229,7 +222,7 @@ export const updateUserController = async (req: Request, res: Response): Promise
       timestamp: new Date().toISOString()
     });
 
-    successResponse(res, { user: result.user }, 'User updated successfully');
+    return res.json(successResponse({ user: result.user }, 'User updated successfully'));
   } catch (error) {
     logger.error('Update user controller error', {
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -239,26 +232,26 @@ export const updateUserController = async (req: Request, res: Response): Promise
       timestamp: new Date().toISOString()
     });
 
-    errorResponse(res, 'Internal server error', 500);
+    return res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
   }
 };
 
 /**
  * Delete user (SUPER_ADMIN only)
  */
-export const deleteUserController = async (req: Request, res: Response): Promise<void> => {
+export const deleteUserController = async (req: Request, res: Response): Promise<Response | undefined> => {
   try {
     const adminUserId = req.user?.id;
     const { id } = req.params;
     const ipAddress = req.ip || 'unknown';
 
     if (!adminUserId) {
-      errorResponse(res, 'Authentication required', 401);
+      return res.status(401).json(errorResponse('Authentication required', 'UNAUTHORIZED'));
       return;
     }
 
     if (!id) {
-      errorResponse(res, 'User ID is required', 400);
+      return res.status(400).json(errorResponse('User ID is required', 'MISSING_USER_ID'));
       return;
     }
 
@@ -267,8 +260,7 @@ export const deleteUserController = async (req: Request, res: Response): Promise
     if (!result.success) {
       const statusCode = result.error === 'User not found' ? 404 : 
                         result.error === 'Cannot delete your own account' ? 400 : 500;
-      errorResponse(res, result.error || 'Failed to delete user', statusCode);
-      return;
+      return res.status(statusCode).json(errorResponse(result.error || 'Failed to delete user', 'DELETE_USER_FAILED'));
     }
 
     logger.info('User deleted via admin controller', {
@@ -278,7 +270,7 @@ export const deleteUserController = async (req: Request, res: Response): Promise
       timestamp: new Date().toISOString()
     });
 
-    successResponse(res, null, 'User deleted successfully');
+    return res.json(successResponse(null, 'User deleted successfully'));
   } catch (error) {
     logger.error('Delete user controller error', {
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -288,34 +280,33 @@ export const deleteUserController = async (req: Request, res: Response): Promise
       timestamp: new Date().toISOString()
     });
 
-    errorResponse(res, 'Internal server error', 500);
+    return res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
   }
 };
 
 /**
  * Reset user password (SUPER_ADMIN only)
  */
-export const resetUserPasswordController = async (req: Request, res: Response): Promise<void> => {
+export const resetUserPasswordController = async (req: Request, res: Response): Promise<Response | undefined> => {
   try {
     const adminUserId = req.user?.id;
     const { id } = req.params;
     const ipAddress = req.ip || 'unknown';
 
     if (!adminUserId) {
-      errorResponse(res, 'Authentication required', 401);
+      return res.status(401).json(errorResponse('Authentication required', 'UNAUTHORIZED'));
       return;
     }
 
     if (!id) {
-      errorResponse(res, 'User ID is required', 400);
+      return res.status(400).json(errorResponse('User ID is required', 'MISSING_USER_ID'));
       return;
     }
 
     const { newPassword } = req.body;
 
     if (!newPassword) {
-      errorResponse(res, 'New password is required', 400);
-      return;
+      return res.status(400).json(errorResponse('New password is required', 'MISSING_PASSWORD'));
     }
 
     const passwordData: ResetPasswordData = {
@@ -326,8 +317,7 @@ export const resetUserPasswordController = async (req: Request, res: Response): 
 
     if (!result.success) {
       const statusCode = result.error === 'User not found' ? 404 : 400;
-      errorResponse(res, result.error || 'Failed to reset password', statusCode);
-      return;
+      return res.status(statusCode).json(errorResponse(result.error || 'Failed to reset password', 'RESET_PASSWORD_FAILED'));
     }
 
     logger.info('User password reset via admin controller', {
@@ -337,7 +327,7 @@ export const resetUserPasswordController = async (req: Request, res: Response): 
       timestamp: new Date().toISOString()
     });
 
-    successResponse(res, null, 'Password reset successfully');
+    return res.json(successResponse(null, 'Password reset successfully'));
   } catch (error) {
     logger.error('Reset user password controller error', {
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -347,6 +337,6 @@ export const resetUserPasswordController = async (req: Request, res: Response): 
       timestamp: new Date().toISOString()
     });
 
-    errorResponse(res, 'Internal server error', 500);
+    return res.status(500).json(errorResponse('Internal server error', 'INTERNAL_ERROR'));
   }
 };

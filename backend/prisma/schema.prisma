@@ -121,14 +121,17 @@ model Project {
   client_id          String        @db.Uuid
   status             ProjectStatus @default(QUOTED)
   type               ProjectType
+  billing_type       BillingType @default(TIME_AND_MATERIALS)
   location           String?
   address            String?
   latitude           Float?
   longitude          Float?
   start_date         DateTime?     @db.Timestamptz(6)
+  end_date           DateTime?     @db.Timestamptz(6)
   estimated_end_date DateTime?     @db.Timestamptz(6)
   actual_end_date    DateTime?     @db.Timestamptz(6)
   budget             Decimal?      @db.Decimal(12, 2)
+  actual_cost        Decimal?      @db.Decimal(12, 2)
   description        String?
   created_by         String        @db.Uuid
   updated_by         String        @db.Uuid
@@ -149,8 +152,12 @@ model Project {
   @@index([client_id])
   @@index([status])
   @@index([type])
+  @@index([billing_type])
   @@index([created_by])
   @@index([start_date])
+  @@index([end_date])
+  @@index([budget])
+  @@index([actual_cost])
   @@index([created_at])
   @@index([deleted_at])
   @@map("projects")
@@ -172,6 +179,12 @@ enum ProjectType {
   INDUSTRIAL
   MAINTENANCE
   OTHER
+}
+
+enum BillingType {
+  TIME_AND_MATERIALS
+  LUMP_SUM
+  SERVICE_CALL
 }
 
 model ProjectMember {

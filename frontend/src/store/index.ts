@@ -32,4 +32,14 @@
 // Store exports
 export { useAuthStore, useUser, useIsAuthenticated, useIsLoading, useAuthError, useAuthActions, useAuth } from './auth.store';
 export { useThemeStore } from './theme.store';
+export { 
+  useProjectStore, 
+  useProjects, 
+  useSelectedProject, 
+  useProjectLoading, 
+  useProjectError, 
+  useProjectPagination, 
+  useProjectFilters, 
+  useProjectActions 
+} from './project.store';
 

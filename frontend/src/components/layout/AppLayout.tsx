@@ -30,6 +30,7 @@ import {
   Settings,
   Logout,
   AccountCircle,
+  Folder,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store';
@@ -71,6 +72,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const menuItems = [
     { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
     { text: 'Projects', icon: <Assignment />, path: '/projects' },
+    { text: 'Files', icon: <Folder />, path: '/files' },
     { text: 'Clients', icon: <Business />, path: '/clients' },
     { text: 'Documents', icon: <Description />, path: '/documents' },
     { text: 'Photos', icon: <PhotoCamera />, path: '/photos' },

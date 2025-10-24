@@ -266,7 +266,7 @@ export async function optionalAuthenticate(
  * // Using role hierarchy
  * router.delete('/users/:id', authenticate, authorizeMinRole('PROJECT_MANAGER'), deleteUser);
  */
-export function authorize(allowedRoles: string | string[]) {
+export function authorizeRoles(allowedRoles: string | string[]) {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     try {
       // Ensure user is authenticated
@@ -590,7 +590,7 @@ export function isOwnerOrAdmin(req: AuthRequest, resourceOwnerId: string): boole
 export default {
   authenticate,
   optionalAuthenticate,
-  authorize,
+  authorizeRoles,
   authorizeMinRole,
   authorizeOwnership,
   hasPermission,

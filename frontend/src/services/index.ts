@@ -37,6 +37,15 @@ export * from './auth.service';
 export { default as adminService } from './admin.service';
 export * from './admin.service';
 
-// Services will be exported here as they are created
-// export * from './projectService';
+// Export project service
+export { default as projectService } from './project.service';
+export * from './project.service';
+
+// Export client service
+export { default as clientService } from './client.service';
+export * from './client.service';
+
+// Export file service
+export { default as fileService } from './file.service';
+export * from './file.service';
 

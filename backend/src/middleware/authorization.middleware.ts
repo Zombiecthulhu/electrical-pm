@@ -110,6 +110,127 @@ export const requireSuperAdmin = authorizeRoles(['SUPER_ADMIN']);
 export const requireAdmin = authorizeRoles(['SUPER_ADMIN', 'OFFICE_ADMIN']);
 
 /**
+ * Middleware to require project manager roles (SUPER_ADMIN, OFFICE_ADMIN, or PROJECT_MANAGER)
+ */
+export const requireProjectManager = authorizeRoles(['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER']);
+
+/**
  * Middleware to require any authenticated user
  */
 export const requireAuth = authorizeRoles(['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR', 'FIELD_WORKER', 'CLIENT_READ_ONLY']);
+
+/**
+ * Generic authorization middleware for resource-based permissions
+ * @param resource - The resource being accessed (e.g., 'files', 'projects')
+ * @param action - The action being performed (e.g., 'read', 'create', 'update', 'delete')
+ * @returns Middleware function
+ */
+export const authorize = (resource: string, action: string) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Check if user is authenticated
+      if (!req.user) {
+        logger.warn('Authorization failed: No user found in request', {
+          ip: req.ip,
+          path: req.path,
+          method: req.method,
+          service: 'electrical-pm-api',
+          timestamp: new Date().toISOString()
+        });
+        
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required'
+          }
+        });
+      }
+
+      // Define role-based permissions
+      const permissions: Record<string, Record<string, string[]>> = {
+        files: {
+          read: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR', 'FIELD_WORKER', 'CLIENT_READ_ONLY'],
+          create: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR', 'FIELD_WORKER'],
+          update: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR'],
+          delete: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER']
+        },
+        projects: {
+          read: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR', 'FIELD_WORKER', 'CLIENT_READ_ONLY'],
+          create: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER'],
+          update: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER'],
+          delete: ['SUPER_ADMIN', 'OFFICE_ADMIN']
+        },
+        clients: {
+          read: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR', 'CLIENT_READ_ONLY'],
+          create: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER'],
+          update: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER'],
+          delete: ['SUPER_ADMIN', 'OFFICE_ADMIN']
+        },
+        users: {
+          read: ['SUPER_ADMIN', 'OFFICE_ADMIN'],
+          create: ['SUPER_ADMIN'],
+          update: ['SUPER_ADMIN', 'OFFICE_ADMIN'],
+          delete: ['SUPER_ADMIN']
+        }
+      };
+
+      // Check if user has permission for the resource and action
+      const allowedRoles = permissions[resource]?.[action];
+      if (!allowedRoles || !allowedRoles.includes(req.user.role)) {
+        logger.warn('Authorization failed: Insufficient permissions', {
+          userId: req.user.id,
+          userRole: req.user.role,
+          resource,
+          action,
+          allowedRoles,
+          ip: req.ip,
+          path: req.path,
+          method: req.method,
+          service: 'electrical-pm-api',
+          timestamp: new Date().toISOString()
+        });
+        
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Insufficient permissions'
+          }
+        });
+      }
+
+      // User is authorized
+      logger.info('Authorization successful', {
+        userId: req.user.id,
+        userRole: req.user.role,
+        resource,
+        action,
+        ip: req.ip,
+        path: req.path,
+        method: req.method,
+        service: 'electrical-pm-api',
+        timestamp: new Date().toISOString()
+      });
+
+      return next();
+    } catch (error) {
+      logger.error('Authorization middleware error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        ip: req.ip,
+        path: req.path,
+        method: req.method,
+        service: 'electrical-pm-api',
+        timestamp: new Date().toISOString()
+      });
+      
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Authorization check failed'
+        }
+      });
+    }
+  };
+};

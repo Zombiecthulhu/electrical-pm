@@ -28,5 +28,7 @@
  */
 
 // Module components will be exported here as they are created
-export {};
+
+// File management module
+export { default as FileManager } from './FileManager';
 

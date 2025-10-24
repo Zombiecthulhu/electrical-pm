@@ -7,6 +7,21 @@
 import { Response } from 'express';
 
 /**
+ * Custom API Error class
+ */
+export class ApiError extends Error {
+  public statusCode: number;
+  public code: string;
+
+  constructor(message: string, statusCode: number = 400, code: string = 'API_ERROR') {
+    super(message);
+    this.name = 'ApiError';
+    this.statusCode = statusCode;
+    this.code = code;
+  }
+}
+
+/**
  * Success response format
  */
 export interface SuccessResponse<T = any> {
@@ -133,23 +148,34 @@ export const sendNoContent = (res: Response): Response => {
  * Send success response with custom format
  */
 export const successResponse = <T>(
-  res: Response,
   data: T,
-  message?: string,
-  statusCode: number = 200
-): Response => {
-  return sendSuccess(res, data, message, statusCode);
+  message?: string
+): SuccessResponse<T> => {
+  const response: SuccessResponse<T> = {
+    success: true,
+    data,
+  };
+
+  if (message) {
+    response.message = message;
+  }
+
+  return response;
 };
 
 /**
  * Send error response with custom format
  */
 export const errorResponse = (
-  res: Response,
   message: string,
-  statusCode: number = 400,
   code: string = 'ERROR'
-): Response => {
-  return sendError(res, code, message, statusCode);
+): ErrorResponse => {
+  return {
+    success: false,
+    error: {
+      code,
+      message,
+    },
+  };
 };
 

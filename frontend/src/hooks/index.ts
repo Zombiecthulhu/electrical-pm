@@ -32,6 +32,7 @@
  * export { useDebounce } from './useDebounce';
  */
 
-// Custom hooks will be exported here as they are created
-export {};
+// File upload hook
+export { useFileUpload } from './useFileUpload';
+export type { FileUploadState, FileUploadOptions, FileUploadResult } from './useFileUpload';
 
