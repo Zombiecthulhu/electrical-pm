@@ -5,7 +5,7 @@
  * Implements proper validation, error handling, and response formatting.
  */
 
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { logger } from '../utils/logger';
 import { ApiError, successResponse, errorResponse } from '../utils/response';
 import {
