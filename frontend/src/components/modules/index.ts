@@ -37,3 +37,8 @@ export { default as ClientList } from './ClientList';
 export { default as ClientForm } from './ClientForm';
 export { default as ClientContactForm } from './ClientContactForm';
 
+// Daily log management module
+export { default as DailyLogList } from './DailyLogList';
+export { default as DailyLogForm } from './DailyLogForm';
+export { default as DailyLogDetail } from './DailyLogDetail';
+

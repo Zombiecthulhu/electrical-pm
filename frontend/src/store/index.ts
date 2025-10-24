@@ -43,4 +43,5 @@ export {
   useProjectActions 
 } from './project.store';
 export { useClientStore } from './client.store';
+export { useDailyLogStore } from './daily-log.store';
 

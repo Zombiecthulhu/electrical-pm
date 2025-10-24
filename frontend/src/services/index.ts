@@ -51,3 +51,7 @@ export * from './file.service';
 export * from './client-contact.service';
 export * from './client-project.service';
 
+// Export daily log service
+export { default as dailyLogService } from './daily-log.service';
+export * from './daily-log.service';
+

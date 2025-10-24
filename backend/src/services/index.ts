@@ -35,3 +35,6 @@ export * from './file.service';
 export * from './client-contact.service';
 export * from './client-project.service';
 
+// Daily Log Service
+export * from './daily-log.service';
+

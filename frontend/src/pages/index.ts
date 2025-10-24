@@ -39,6 +39,7 @@ export { default as Settings } from './Settings';
 export { default as FileManagement } from './FileManagement';
 export { default as ClientManagement } from './ClientManagement';
 export { default as ClientDetail } from './ClientDetail';
+export { default as DailyLogManagement } from './DailyLogManagement';
 
 // Project pages
 export * from './Projects';

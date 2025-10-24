@@ -167,6 +167,12 @@ export const authorize = (resource: string, action: string) => {
           update: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER'],
           delete: ['SUPER_ADMIN', 'OFFICE_ADMIN']
         },
+        daily_logs: {
+          read: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR', 'FIELD_WORKER', 'CLIENT_READ_ONLY'],
+          create: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR', 'FIELD_WORKER'],
+          update: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR'],
+          delete: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER']
+        },
         users: {
           read: ['SUPER_ADMIN', 'OFFICE_ADMIN'],
           create: ['SUPER_ADMIN'],
