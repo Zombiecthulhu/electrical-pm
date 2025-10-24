@@ -21,18 +21,9 @@ import {
   CreateQuoteData,
   UpdateQuoteData,
   QuoteFilters,
-  LineItem
 } from '../services/quote.service';
 import { QuoteStatus } from '@prisma/client';
-
-// Extend Request interface for authenticated requests
-interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    role: string;
-    email?: string;
-  };
-}
+import { AuthRequest } from '../middleware/auth.middleware';
 
 /**
  * Create a new quote
