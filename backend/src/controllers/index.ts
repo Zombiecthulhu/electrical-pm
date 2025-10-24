@@ -9,6 +9,7 @@
  * export { projectController } from './project.controller';
  */
 
-// Controllers will be exported here as they are created
-export {};
+// Authentication Controller
+export * from './auth.controller';
+export { default as authController } from './auth.controller';
 
