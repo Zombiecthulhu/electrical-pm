@@ -1,0 +1,32 @@
+/**
+ * Module Components Index
+ * 
+ * This file exports module-specific components.
+ * Each module has its own subdirectory with related components.
+ * 
+ * Module structure:
+ * /modules
+ *   /Hub          - Dashboard and module launcher
+ *   /Projects     - Project management components
+ *   /Clients      - Client management components
+ *   /Documents    - Document management components
+ *   /Photos       - Photo management components
+ *   /DailyLogs    - Daily logs components
+ *   /Quotes       - Quote/bid management components
+ *   /Users        - User management components
+ * 
+ * Each module should contain:
+ * - List view components (tables, cards)
+ * - Detail view components
+ * - Form components (create/edit)
+ * - Module-specific components
+ * 
+ * Export pattern:
+ * export * from './Hub';
+ * export * from './Projects';
+ * export * from './Clients';
+ */
+
+// Module components will be exported here as they are created
+export {};
+

@@ -1,0 +1,108 @@
+import express, { Application, Request, Response, NextFunction } from 'express';
+import dotenv from 'dotenv';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import { logger } from './utils/logger';
+import { errorHandler } from './middleware/error-handler';
+import apiRouter from './routes';
+
+// Load environment variables
+dotenv.config();
+
+// Initialize Express app
+const app: Application = express();
+const PORT = process.env.PORT || 5000;
+
+// Security middleware
+app.use(helmet());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+});
+app.use('/api/', limiter);
+
+// CORS configuration
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    credentials: true,
+  })
+);
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Compression middleware
+app.use(compression());
+
+// Request logging middleware
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  logger.info(`${req.method} ${req.path}`, {
+    ip: req.ip,
+    userAgent: req.get('user-agent'),
+  });
+  next();
+});
+
+// Root health check endpoint
+app.get('/health', (_req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Mount API v1 routes
+app.use('/api/v1', apiRouter);
+
+// Additional API routes will be added to routes/index.ts
+// Example structure in routes/index.ts:
+// router.use('/auth', authRoutes);
+// router.use('/projects', projectRoutes);
+// router.use('/clients', clientRoutes);
+// router.use('/users', userRoutes);
+// router.use('/files', fileRoutes);
+// router.use('/daily-logs', dailyLogRoutes);
+// router.use('/quotes', quoteRoutes);
+
+// 404 handler
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({
+    success: false,
+    error: {
+      code: 'NOT_FOUND',
+      message: 'The requested resource was not found',
+    },
+  });
+});
+
+// Error handling middleware (must be last)
+app.use(errorHandler);
+
+// Start server
+app.listen(PORT, () => {
+  logger.info(`Server is running on port ${PORT}`);
+  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err: Error) => {
+  logger.error('Unhandled Rejection:', err);
+  process.exit(1);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err: Error) => {
+  logger.error('Uncaught Exception:', err);
+  process.exit(1);
+});
+
+export default app;
+

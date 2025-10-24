@@ -1,0 +1,36 @@
+/**
+ * Pages Index
+ * 
+ * This file exports all route-level page components.
+ * Pages are top-level components that correspond to routes.
+ * 
+ * Page structure:
+ * - LoginPage
+ * - DashboardPage
+ * - ProjectsPage
+ * - ProjectDetailPage
+ * - ClientsPage
+ * - ClientDetailPage
+ * - DocumentsPage
+ * - PhotosPage
+ * - DailyLogsPage
+ * - QuotesPage
+ * - SettingsPage
+ * - ProfilePage
+ * - NotFoundPage
+ * 
+ * Pages should:
+ * - Handle route params
+ * - Fetch data (via hooks or services)
+ * - Compose layout and components
+ * - Handle page-level state
+ * 
+ * Export pattern:
+ * export { LoginPage } from './LoginPage';
+ * export { DashboardPage } from './DashboardPage';
+ * export { ProjectsPage } from './ProjectsPage';
+ */
+
+// Pages will be exported here as they are created
+export {};
+

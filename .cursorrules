@@ -1,0 +1,543 @@
+# Electrical Construction Project Management System - Cursor Rules
+
+## Project Overview
+You are building an Electrical Construction Project Management System - a full-stack web application for managing construction projects, clients, quotes, documents, photos, and daily logs. This is an internal business tool being developed using AI-assisted "vibe coding" with a modular architecture.
+
+## Tech Stack
+
+### Frontend
+- React 18+ with TypeScript
+- Material-UI (MUI) v5+ for UI components
+- React Router v6 for navigation
+- Zustand or Redux Toolkit for state management
+- Axios for HTTP requests
+- React Query for data fetching/caching
+
+### Backend
+- Node.js 18+ with Express.js
+- TypeScript for type safety
+- Prisma ORM with PostgreSQL 14+
+- JWT (jsonwebtoken) for authentication
+- bcrypt for password hashing
+- Multer for file uploads
+- Sharp for image processing
+
+### Database
+- PostgreSQL with Prisma ORM
+- Use snake_case for table and column names
+- Always include created_at, updated_at, created_by, updated_by fields
+- Implement soft deletes with deleted_at field for critical tables
+
+## Project Structure
+
+### Backend (/backend)
+```
+/src
+  /controllers    # API route handlers (business logic coordination)
+  /models         # Prisma schema and database models
+  /services       # Business logic layer (reusable service functions)
+  /middleware     # Auth, validation, error handling
+  /routes         # API route definitions
+  /utils          # Helpers, formatters, constants
+  /config         # Database config, environment setup
+server.js         # Entry point
+```
+
+### Frontend (/frontend)
+```
+/src
+  /components
+    /common       # Reusable components (buttons, forms, cards)
+    /layout       # App shell, sidebar, header, footer
+    /modules      # Module-specific components (Hub, Projects, Clients, etc.)
+  /pages          # Route-level page components
+  /services       # API client (axios instance, API functions)
+  /store          # State management (Zustand/Redux)
+  /utils          # Helper functions, formatters
+  /hooks          # Custom React hooks
+  /theme          # MUI theme configuration
+  App.tsx
+  index.tsx
+```
+
+## Naming Conventions
+
+### Files & Directories
+- **Files**: kebab-case (e.g., `project-list.tsx`, `auth-service.ts`)
+- **Components**: PascalCase files (e.g., `ProjectList.tsx`, `ClientCard.tsx`)
+- **Directories**: kebab-case (e.g., `/daily-logs`, `/user-management`)
+
+### Code
+- **Components**: PascalCase (e.g., `ProjectList`, `DailyLogForm`)
+- **Functions/Variables**: camelCase (e.g., `getUserById`, `projectData`)
+- **Constants**: UPPER_SNAKE_CASE (e.g., `MAX_FILE_SIZE`, `API_BASE_URL`)
+- **Interfaces/Types**: PascalCase with 'I' prefix optional (e.g., `Project`, `IUserProfile`)
+- **Database tables/columns**: snake_case (e.g., `project_members`, `created_at`)
+
+## Code Style & Best Practices
+
+### TypeScript
+- Always use TypeScript for both frontend and backend
+- Define interfaces for all data structures
+- Use explicit return types for functions
+- Avoid `any` type - use `unknown` if type is truly unknown
+- Use JSDoc comments for complex functions
+
+### React Components
+- Use functional components with hooks (no class components)
+- Use arrow functions for component definitions
+- Keep components focused and single-purpose (max 200 lines)
+- Extract reusable logic into custom hooks
+- Use React.memo() for performance optimization when needed
+
+### State Management
+- Use local state (useState) for component-specific data
+- Use global state (Zustand/Redux) for shared data across modules
+- Minimize state - derive values when possible
+- Keep state normalized (no deeply nested objects)
+
+### API Design
+- RESTful endpoints with standard HTTP methods (GET, POST, PUT, DELETE)
+- Versioned API routes (e.g., `/api/v1/projects`)
+- Consistent response format:
+  ```json
+  {
+    "success": true,
+    "data": { ... },
+    "message": "Optional message"
+  }
+  ```
+- Error response format:
+  ```json
+  {
+    "success": false,
+    "error": {
+      "code": "ERROR_CODE",
+      "message": "User-friendly message",
+      "field": "fieldName" // optional, for validation errors
+    }
+  }
+  ```
+
+## Security Requirements (CRITICAL)
+
+### Authentication
+- Use JWT tokens stored in HTTP-only cookies (NEVER localStorage)
+- Implement refresh token rotation
+- Access tokens: 15-30 minute expiration
+- Refresh tokens: 7-30 day expiration
+- Hash all passwords with bcrypt (work factor 12+)
+- Never log passwords, tokens, or sensitive data
+
+### Input Validation
+- **ALWAYS validate user input on the server** (never trust client)
+- Use schema validation (Joi, Yup, or Zod)
+- Sanitize all inputs to prevent XSS
+- Use parameterized queries (Prisma handles this automatically)
+- Validate file types, sizes, and content on upload
+
+### Authorization
+- Check authentication on every protected route
+- Implement role-based access control (RBAC)
+- Verify user has permission for specific actions (CRUD)
+- Check project/resource-level permissions
+- Use middleware pattern for auth checks:
+  ```typescript
+  router.get('/projects/:id', authenticate, authorize('projects', 'read'), getProject);
+  ```
+
+### File Uploads
+- Validate file types on server (don't trust MIME from client)
+- Set file size limits (default: 10MB max)
+- Use UUID filenames to prevent path traversal
+- Store files outside web root
+- Never serve files directly - use controlled download endpoint
+- Generate thumbnails for images automatically
+
+### Error Handling
+- Use try-catch for all async operations
+- Log errors with context (user_id, action, timestamp)
+- Return user-friendly messages (never expose stack traces to client)
+- Use centralized error handling middleware
+- Example:
+  ```typescript
+  try {
+    // operation
+  } catch (error) {
+    logger.error('Operation failed', { userId, action: 'createProject', error });
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: 'OPERATION_FAILED',
+        message: 'Unable to create project. Please try again.'
+      }
+    });
+  }
+  ```
+
+## Database Patterns
+
+### Model Structure
+Every model should include:
+```typescript
+{
+  id: string (UUID)
+  created_at: DateTime
+  updated_at: DateTime
+  created_by: string (user_id)
+  updated_by: string (user_id)
+  deleted_at?: DateTime (for soft deletes)
+}
+```
+
+### Soft Deletes
+- Add `deleted_at` field to tables: Users, Projects, Clients, Documents
+- Filter out soft-deleted records in queries: `WHERE deleted_at IS NULL`
+- Provide admin function to permanently delete after retention period
+
+### Relationships
+- Use explicit foreign keys
+- Define relations in Prisma schema
+- Use CASCADE delete carefully (prefer soft delete)
+- Index foreign key columns
+
+### Queries
+- Use Prisma's type-safe query builder
+- Implement pagination for lists (default: 20 items per page)
+- Add filters and sorting to list endpoints
+- Use transactions for multi-step operations
+- Example:
+  ```typescript
+  const projects = await prisma.project.findMany({
+    where: {
+      deleted_at: null,
+      status: 'active'
+    },
+    include: {
+      client: true,
+      members: true
+    },
+    skip: (page - 1) * limit,
+    take: limit,
+    orderBy: { created_at: 'desc' }
+  });
+  ```
+
+## File Storage Strategy
+
+### Local Storage (Initial)
+- Organize files in structured directories:
+  ```
+  /storage
+    /documents/[project_id]/[category]/
+    /photos/[project_id]/[date]/originals/
+    /photos/[project_id]/[date]/thumbnails/
+    /temp/ (cleared daily)
+  ```
+- Use UUID filenames: `[uuid].[extension]`
+- Store metadata in database (Files table)
+- Calculate SHA-256 checksum for integrity
+
+### Storage Service Pattern (Cloud-Ready)
+Create abstraction layer for easy cloud migration:
+```typescript
+interface IStorageService {
+  upload(file: Buffer, metadata: FileMetadata): Promise<string>;
+  download(path: string): Promise<Buffer>;
+  delete(path: string): Promise<void>;
+  getUrl(path: string): string;
+}
+
+// LocalStorageService implements IStorageService
+// GCSStorageService implements IStorageService (future)
+```
+
+### Image Processing
+- Auto-generate thumbnails (200x200px) for all uploaded images
+- Generate preview images (800px max dimension)
+- Extract EXIF data (date, GPS, camera info)
+- Strip sensitive EXIF before external sharing
+- Use Sharp library for processing
+
+## Module Development Guidelines
+
+### Module Structure
+Each module is self-contained:
+- Has own database tables/models
+- Has own API routes under `/api/v1/[module-name]`
+- Has own frontend component directory
+- Shares common utilities (auth, file handling)
+- Can be enabled/disabled in hub configuration
+
+### Module Components
+For each module, create:
+1. **List View** - Table or cards showing all items with filters/search/sort
+2. **Detail View** - Single item with full information
+3. **Create/Edit Form** - Form for adding/modifying items
+4. **Delete Confirmation** - Modal or dialog for deletion
+5. **State Management** - Slice for module data
+
+### Module API Endpoints
+Standard CRUD pattern:
+- `GET /api/v1/[module]` - List all (with pagination, filters)
+- `GET /api/v1/[module]/:id` - Get single item
+- `POST /api/v1/[module]` - Create new item
+- `PUT /api/v1/[module]/:id` - Update item
+- `DELETE /api/v1/[module]/:id` - Delete item (soft delete)
+
+## UI/UX Guidelines
+
+### Material-UI Usage
+- Use MUI components consistently throughout
+- Customize theme in `/src/theme/theme.ts`
+- Use theme variables for colors, spacing, typography
+- Implement responsive breakpoints (xs, sm, md, lg, xl)
+- Use MUI icons from `@mui/icons-material`
+
+### Layout
+- App shell: Sidebar (permanent on desktop, drawer on mobile) + Top bar + Main content
+- Sidebar width: 240px
+- Top bar height: 64px
+- Main content: max-width 1440px, centered with padding
+
+### Forms
+- Use Formik or React Hook Form for form management
+- Implement real-time validation with visual feedback
+- Show loading state during submission
+- Display success/error messages with Snackbar/Toast
+- Disable submit button while submitting
+
+### Data Tables
+- Use MUI DataGrid for complex tables
+- Implement sorting, filtering, pagination
+- Show loading skeleton while fetching
+- Display empty state with helpful message
+- Add action buttons (view, edit, delete) per row
+
+### Responsive Design
+- Mobile-first approach
+- Test on breakpoints: 320px, 768px, 1024px, 1440px
+- Hide less important columns on mobile (show in detail view)
+- Use drawer/menu for navigation on mobile
+- Ensure touch targets are 44x44px minimum
+
+### Accessibility
+- Use semantic HTML elements
+- Add ARIA labels for screen readers
+- Ensure keyboard navigation works (tab order)
+- Maintain color contrast (WCAG AA minimum)
+- Show focus indicators on interactive elements
+
+## API Client Patterns
+
+### Axios Configuration
+Create configured axios instance:
+```typescript
+// src/services/api.ts
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1',
+  withCredentials: true, // for HTTP-only cookies
+  timeout: 10000
+});
+
+// Request interceptor for auth
+api.interceptors.request.use(config => {
+  // Add any headers needed
+  return config;
+});
+
+// Response interceptor for error handling
+api.interceptors.response.use(
+  response => response.data,
+  error => {
+    // Handle token expiration, show errors, etc.
+    return Promise.reject(error);
+  }
+);
+
+export default api;
+```
+
+### API Service Functions
+Create service functions for each module:
+```typescript
+// src/services/project-service.ts
+import api from './api';
+
+export const projectService = {
+  getAll: (params?: QueryParams) => api.get('/projects', { params }),
+  getById: (id: string) => api.get(`/projects/${id}`),
+  create: (data: CreateProjectDTO) => api.post('/projects', data),
+  update: (id: string, data: UpdateProjectDTO) => api.put(`/projects/${id}`, data),
+  delete: (id: string) => api.delete(`/projects/${id}`)
+};
+```
+
+## Testing Strategy
+
+### Manual Testing Priority
+Since this is vibe coding, focus on manual testing:
+- Test each feature in browser after implementation
+- Test all CRUD operations
+- Test with different user roles and permissions
+- Test edge cases (empty data, long strings, special characters)
+- Test on different screen sizes (mobile, tablet, desktop)
+- Test error scenarios (network failures, validation errors)
+
+### Automated Tests (Future)
+Once core features are stable, add:
+- Unit tests for services and utilities (Jest/Vitest)
+- Integration tests for API endpoints (Supertest)
+- E2E tests for critical workflows (Playwright)
+
+## Environment Variables
+
+### Backend (.env)
+```bash
+DATABASE_URL=postgresql://user:password@localhost:5432/project_mgmt
+JWT_SECRET=your-secret-key-change-in-production
+JWT_EXPIRES_IN=30m
+REFRESH_TOKEN_SECRET=your-refresh-secret
+REFRESH_TOKEN_EXPIRES_IN=7d
+STORAGE_PATH=/storage
+MAX_FILE_SIZE=10485760
+PORT=5000
+NODE_ENV=development
+```
+
+### Frontend (.env)
+```bash
+REACT_APP_API_URL=http://localhost:5000/api/v1
+```
+
+## Performance Optimization
+
+### Frontend
+- Code splitting by route (React.lazy)
+- Lazy load heavy components
+- Memoize expensive computations (useMemo)
+- Memoize callbacks (useCallback)
+- Virtualize long lists (react-window)
+- Optimize images (WebP format, appropriate sizes)
+- Debounce search inputs (300ms)
+
+### Backend
+- Index frequently queried columns
+- Use database query optimization (EXPLAIN ANALYZE)
+- Implement caching for expensive queries (Redis, future)
+- Paginate all list endpoints
+- Use connection pooling (Prisma handles this)
+- Compress responses (gzip middleware)
+
+### Database
+- Create indexes on foreign keys
+- Create composite indexes for common query patterns
+- Avoid N+1 queries (use Prisma's include)
+- Use database transactions for consistency
+- Monitor slow queries and optimize
+
+## Development Workflow
+
+### When Creating New Features
+1. Read this PRD and relevant module documentation
+2. Design database schema (if needed)
+3. Create Prisma models and migrations
+4. Build API endpoints with validation
+5. Test API endpoints (Thunder Client, Postman)
+6. Create frontend components
+7. Implement state management
+8. Connect frontend to API
+9. Test feature thoroughly
+10. Handle edge cases and errors
+
+### When Debugging
+1. Check browser console for frontend errors
+2. Check server logs for backend errors
+3. Verify API requests in Network tab
+4. Check database state with Prisma Studio
+5. Use debugger breakpoints
+6. Add strategic console.logs (remove after debugging)
+
+### Git Commit Messages
+Use conventional commits:
+- `feat: add project kanban board view`
+- `fix: resolve photo upload validation error`
+- `refactor: extract auth logic to middleware`
+- `docs: update API documentation`
+- `style: format code with prettier`
+- `test: add tests for project service`
+
+## Common Pitfalls to Avoid
+
+### Security
+- ❌ Never store passwords in plain text
+- ❌ Never expose stack traces to client
+- ❌ Never trust client-side validation alone
+- ❌ Never use `SELECT *` with user input without sanitization
+- ❌ Never log sensitive data (passwords, tokens, SSNs)
+
+### Performance
+- ❌ Don't fetch all records without pagination
+- ❌ Don't load all modules on initial page load
+- ❌ Don't make API calls in render (use useEffect)
+- ❌ Don't create new functions in render (use useCallback)
+
+### Code Quality
+- ❌ Don't repeat code (DRY principle)
+- ❌ Don't create God objects/components (single responsibility)
+- ❌ Don't ignore TypeScript errors
+- ❌ Don't leave console.logs in production code
+- ❌ Don't hardcode values (use constants/config)
+
+## Deployment Preparation (Future)
+
+### Docker
+- Create Dockerfile for Node.js app
+- Use multi-stage builds (build + production)
+- Create docker-compose.yml for local development
+- Include database in docker-compose
+
+### Google Cloud Platform
+- Design for Cloud Run deployment (stateless)
+- Plan Cloud SQL migration (PostgreSQL)
+- Plan Cloud Storage migration (files)
+- Use Secret Manager for sensitive config
+- Setup Cloud Build for CI/CD
+
+## Additional Context
+
+### Business Context
+This is an internal tool for an electrical construction business. Users include:
+- Business owners (full access)
+- Project managers (project oversight)
+- Field supervisors (daily logs, photos)
+- Office staff (documents, quotes)
+- Field workers (view assignments, upload photos)
+
+### Key Requirements
+- Must work well on mobile (field workers use phones)
+- Must handle large files (construction plans, photos)
+- Must be intuitive (minimal training needed)
+- Must be reliable (critical business tool)
+- Must be secure (contains sensitive business data)
+
+### Future Features
+- Mobile app (React Native)
+- Real-time collaboration
+- Advanced analytics
+- Accounting software integration
+- OCR for document processing
+
+## Remember
+- Always prioritize security over convenience
+- Write code that's easy to understand (you'll revisit it)
+- Test thoroughly before moving to next feature
+- Document complex logic
+- Ask clarifying questions if requirements are unclear
+- Reference the full PRD document for detailed specifications
+
+---
+
+When generating code, always follow these rules. If you're unsure about implementation details, ask before proceeding. The goal is to build a robust, secure, maintainable application that serves the business well for years to come.
