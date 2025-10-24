@@ -32,6 +32,7 @@ import {
 } from '../../store';
 import { CreateProjectData, UpdateProjectData } from '../../services/project.service';
 import { clientService, Client } from '../../services/client.service';
+import { clientContactService, ClientContact } from '../../services/client-contact.service';
 import { 
   Save as SaveIcon, 
   Cancel as CancelIcon,
@@ -47,12 +48,14 @@ interface ProjectFormData {
   name: string;
   projectNumber: string;
   clientId: string;
+  contactId: string;
   type: 'Commercial' | 'Residential' | 'Industrial';
   billingType: 'TIME_AND_MATERIALS' | 'LUMP_SUM' | 'SERVICE_CALL';
   location: string;
   startDate: Date | null;
   endDate: Date | null;
   budget: number | '';
+  description: string;
 }
 
 // Default form values
@@ -60,12 +63,14 @@ const defaultValues: ProjectFormData = {
   name: '',
   projectNumber: '',
   clientId: '',
+  contactId: '',
   type: 'Commercial',
   billingType: 'TIME_AND_MATERIALS',
   location: '',
   startDate: null,
   endDate: null,
   budget: '',
+  description: '',
 };
 
 // Project type options
@@ -100,6 +105,9 @@ const ProjectForm: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsLoading, setClientsLoading] = useState(true);
   const [clientsError, setClientsError] = useState<string | null>(null);
+  const [clientContacts, setClientContacts] = useState<ClientContact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactsError, setContactsError] = useState<string | null>(null);
 
   // Form setup
   const {
@@ -115,6 +123,9 @@ const ProjectForm: React.FC = () => {
 
   // Watch start date for end date validation
   const startDate = watch('startDate');
+  
+  // Watch client ID to load contacts
+  const selectedClientId = watch('clientId');
 
   // Load clients
   useEffect(() => {
@@ -139,6 +150,34 @@ const ProjectForm: React.FC = () => {
     fetchClients();
   }, []);
 
+  // Load client contacts when client is selected
+  useEffect(() => {
+    const fetchClientContacts = async () => {
+      if (!selectedClientId) {
+        setClientContacts([]);
+        return;
+      }
+
+      try {
+        setContactsLoading(true);
+        setContactsError(null);
+        const response = await clientContactService.getAll(selectedClientId);
+        if (response.success) {
+          setClientContacts(response.data.contacts || []);
+        } else {
+          setContactsError('Failed to load contacts');
+        }
+      } catch (error: any) {
+        console.error('Error fetching contacts:', error);
+        setContactsError(error.message || 'Failed to load contacts');
+      } finally {
+        setContactsLoading(false);
+      }
+    };
+
+    fetchClientContacts();
+  }, [selectedClientId]);
+
   // Load project data for editing
   useEffect(() => {
     if (isEdit && id) {
@@ -153,12 +192,14 @@ const ProjectForm: React.FC = () => {
         name: selectedProject.name || '',
         projectNumber: selectedProject.projectNumber || '',
         clientId: selectedProject.clientId || '',
+        contactId: selectedProject.contactId || '',
         type: (selectedProject.type as 'Commercial' | 'Residential' | 'Industrial') || 'Commercial',
         billingType: selectedProject.billingType || 'TIME_AND_MATERIALS',
         location: selectedProject.location || '',
         startDate: selectedProject.startDate ? new Date(selectedProject.startDate) : null,
         endDate: selectedProject.endDate ? new Date(selectedProject.endDate) : null,
         budget: selectedProject.budget || '',
+        description: selectedProject.description || '',
       });
     }
   }, [isEdit, selectedProject, reset]);
@@ -174,12 +215,14 @@ const ProjectForm: React.FC = () => {
         name: data.name,
         projectNumber: data.projectNumber,
         clientId: data.clientId,
+        contactId: data.contactId || null,
         type: data.type,
         billingType: data.billingType,
         location: data.location,
         startDate: data.startDate?.toISOString().split('T')[0] || '',
         endDate: data.endDate?.toISOString().split('T')[0] || undefined,
         budget: Number(data.budget),
+        description: data.description || null,
       };
 
       if (isEdit && id) {
@@ -341,6 +384,49 @@ const ProjectForm: React.FC = () => {
                 />
               </Box>
 
+              {/* Client Contact Selection */}
+              <Box>
+                <Controller
+                  name="contactId"
+                  control={control}
+                  render={({ field }: { field: any }) => (
+                    <FormControl fullWidth error={!!errors.contactId}>
+                      <InputLabel>Primary Contact</InputLabel>
+                      <Select
+                        {...field}
+                        label="Primary Contact"
+                        disabled={!selectedClientId || contactsLoading}
+                      >
+                        {!selectedClientId ? (
+                          <MenuItem disabled>Select a client first</MenuItem>
+                        ) : contactsLoading ? (
+                          <MenuItem disabled>Loading contacts...</MenuItem>
+                        ) : contactsError ? (
+                          <MenuItem disabled>Error loading contacts</MenuItem>
+                        ) : clientContacts.length === 0 ? (
+                          <MenuItem disabled>No contacts available</MenuItem>
+                        ) : (
+                          clientContacts.map((contact) => (
+                            <MenuItem key={contact.id} value={contact.id}>
+                              {contact.name} {contact.title && `- ${contact.title}`}
+                            </MenuItem>
+                          ))
+                        )}
+                      </Select>
+                      {errors.contactId && (
+                        <FormHelperText>{errors.contactId.message}</FormHelperText>
+                      )}
+                      <FormHelperText>
+                        {!selectedClientId 
+                          ? 'Select a client to load contacts' 
+                          : 'Optional: Select a primary contact for this project'
+                        }
+                      </FormHelperText>
+                    </FormControl>
+                  )}
+                />
+              </Box>
+
               {/* Project Type */}
               <Box>
                 <Controller
@@ -421,6 +507,26 @@ const ProjectForm: React.FC = () => {
                       InputProps={{
                         startAdornment: <LocationIcon sx={{ mr: 1, color: 'action.active' }} />
                       }}
+                    />
+                  )}
+                />
+              </Box>
+
+              {/* Description */}
+              <Box sx={{ gridColumn: '1 / -1' }}>
+                <Controller
+                  name="description"
+                  control={control}
+                  render={({ field }: { field: any }) => (
+                    <TextField
+                      {...field}
+                      label="Project Description"
+                      fullWidth
+                      multiline
+                      rows={4}
+                      placeholder="Describe the project scope, requirements, and any special considerations..."
+                      error={!!errors.description}
+                      helperText={errors.description?.message || 'Optional: Detailed description of the project'}
                     />
                   )}
                 />

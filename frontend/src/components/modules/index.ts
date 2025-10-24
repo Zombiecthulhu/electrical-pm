@@ -32,3 +32,8 @@
 // File management module
 export { default as FileManager } from './FileManager';
 
+// Client management module
+export { default as ClientList } from './ClientList';
+export { default as ClientForm } from './ClientForm';
+export { default as ClientContactForm } from './ClientContactForm';
+

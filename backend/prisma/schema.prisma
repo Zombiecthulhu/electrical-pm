@@ -106,7 +106,8 @@ model ClientContact {
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
   // Relations
-  client Client @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  client   Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  projects Project[]
 
   @@index([client_id])
   @@index([is_primary])
@@ -119,6 +120,7 @@ model Project {
   name               String
   project_number     String        @unique
   client_id          String        @db.Uuid
+  contact_id         String?       @db.Uuid
   status             ProjectStatus @default(QUOTED)
   type               ProjectType
   billing_type       BillingType @default(TIME_AND_MATERIALS)
@@ -141,6 +143,7 @@ model Project {
 
   // Relations
   client     Client           @relation(fields: [client_id], references: [id])
+  contact    ClientContact?   @relation(fields: [contact_id], references: [id])
   creator    User             @relation("CreatedProjects", fields: [created_by], references: [id])
   updater    User             @relation("UpdatedProjects", fields: [updated_by], references: [id])
   members    ProjectMember[]

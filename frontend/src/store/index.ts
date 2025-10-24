@@ -42,4 +42,5 @@ export {
   useProjectFilters, 
   useProjectActions 
 } from './project.store';
+export { useClientStore } from './client.store';
 

@@ -32,4 +32,6 @@ export * from './client.service';
 
 // File Service
 export * from './file.service';
+export * from './client-contact.service';
+export * from './client-project.service';
 

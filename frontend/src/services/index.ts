@@ -48,4 +48,6 @@ export * from './client.service';
 // Export file service
 export { default as fileService } from './file.service';
 export * from './file.service';
+export * from './client-contact.service';
+export * from './client-project.service';
 

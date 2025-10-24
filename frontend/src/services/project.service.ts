@@ -13,6 +13,7 @@ interface ProjectApiResponse {
   name: string;
   project_number: string;
   client_id: string;
+  contact_id?: string | null;
   status: 'QUOTED' | 'AWARDED' | 'IN_PROGRESS' | 'INSPECTION' | 'COMPLETE';
   type: string;
   billing_type: 'TIME_AND_MATERIALS' | 'LUMP_SUM' | 'SERVICE_CALL';
@@ -21,6 +22,7 @@ interface ProjectApiResponse {
   end_date?: string | null;
   budget: string; // API returns as string
   actual_cost?: string | null;
+  description?: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -29,6 +31,13 @@ interface ProjectApiResponse {
     id: string;
     name: string;
     type: string;
+  };
+  contact?: {
+    id: string;
+    name: string;
+    title?: string;
+    email?: string;
+    phone?: string;
   };
   members?: ProjectMember[];
   creator?: {
@@ -49,6 +58,7 @@ export interface Project {
   name: string;
   projectNumber: string;
   clientId: string;
+  contactId?: string | null;
   status: 'QUOTED' | 'AWARDED' | 'IN_PROGRESS' | 'INSPECTION' | 'COMPLETE';
   type: string;
   billingType: 'TIME_AND_MATERIALS' | 'LUMP_SUM' | 'SERVICE_CALL';
@@ -57,6 +67,7 @@ export interface Project {
   endDate?: string | null;
   budget: number;
   actualCost?: number;
+  description?: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -65,6 +76,13 @@ export interface Project {
     id: string;
     name: string;
     email: string;
+  };
+  contact?: {
+    id: string;
+    name: string;
+    title?: string;
+    email?: string;
+    phone?: string;
   };
   members?: ProjectMember[];
 }
@@ -106,6 +124,7 @@ export interface CreateProjectData {
   name: string;
   projectNumber: string;
   clientId: string;
+  contactId?: string | null;
   status: 'QUOTED' | 'AWARDED' | 'IN_PROGRESS' | 'INSPECTION' | 'COMPLETE';
   type: string;
   billingType: 'TIME_AND_MATERIALS' | 'LUMP_SUM' | 'SERVICE_CALL';
@@ -114,12 +133,14 @@ export interface CreateProjectData {
   endDate?: string;
   budget: number;
   actualCost?: number;
+  description?: string | null;
 }
 
 export interface UpdateProjectData {
   name?: string;
   projectNumber?: string;
   clientId?: string;
+  contactId?: string | null;
   status?: 'QUOTED' | 'AWARDED' | 'IN_PROGRESS' | 'INSPECTION' | 'COMPLETE';
   type?: string;
   billingType?: 'TIME_AND_MATERIALS' | 'LUMP_SUM' | 'SERVICE_CALL';
@@ -128,6 +149,7 @@ export interface UpdateProjectData {
   endDate?: string;
   budget?: number;
   actualCost?: number;
+  description?: string | null;
 }
 
 export interface ProjectsResponse {
@@ -165,6 +187,7 @@ const transformProject = (apiProject: ProjectApiResponse): Project => {
     name: apiProject.name,
     projectNumber: apiProject.project_number,
     clientId: apiProject.client_id,
+    contactId: apiProject.contact_id,
     status: apiProject.status,
     type: apiProject.type,
     billingType: apiProject.billing_type,
@@ -173,6 +196,7 @@ const transformProject = (apiProject: ProjectApiResponse): Project => {
     endDate: apiProject.end_date,
     budget: parseFloat(apiProject.budget) || 0,
     actualCost: apiProject.actual_cost ? parseFloat(apiProject.actual_cost) : undefined,
+    description: apiProject.description,
     createdBy: apiProject.created_by,
     createdAt: apiProject.created_at,
     updatedAt: apiProject.updated_at,
@@ -181,6 +205,13 @@ const transformProject = (apiProject: ProjectApiResponse): Project => {
       id: apiProject.client.id,
       name: apiProject.client.name,
       email: '', // API doesn't return email in this context
+    } : undefined,
+    contact: apiProject.contact ? {
+      id: apiProject.contact.id,
+      name: apiProject.contact.name,
+      title: apiProject.contact.title,
+      email: apiProject.contact.email,
+      phone: apiProject.contact.phone,
     } : undefined,
     members: apiProject.members || [],
   };

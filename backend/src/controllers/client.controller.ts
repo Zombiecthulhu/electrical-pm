@@ -10,7 +10,7 @@ import {
   CreateClientData,
   UpdateClientData
 } from '../services/client.service';
-import { sendSuccess, sendError } from '../utils/response';
+import { successResponse, errorResponse } from '../utils/response';
 import { logger } from '../utils/logger';
 import { AuthRequest } from '../middleware/auth.middleware';
 
@@ -18,7 +18,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
  * Get all clients with optional filters and pagination
  * GET /api/v1/clients
  */
-export const getClients = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getClients = async (req: AuthRequest, res: Response): Promise<Response | undefined> => {
   try {
     const { search, type, page, limit } = req.query;
 
@@ -41,14 +41,14 @@ export const getClients = async (req: AuthRequest, res: Response): Promise<void>
       resultCount: result.data.clients.length
     });
 
-    sendSuccess(res, result.data, 'Clients retrieved successfully');
+    return res.json(successResponse(result.data, 'Clients retrieved successfully'));
   } catch (error: any) {
     logger.error('Error retrieving clients', {
       error: error.message,
       userId: req.user?.id,
       query: req.query
     });
-    sendError(res, 'CLIENTS_RETRIEVAL_FAILED', 'Failed to retrieve clients', 500);
+    return res.status(500).json(errorResponse('Failed to retrieve clients', 'CLIENTS_RETRIEVAL_FAILED'));
   }
 };
 
@@ -56,12 +56,12 @@ export const getClients = async (req: AuthRequest, res: Response): Promise<void>
  * Get single client by ID
  * GET /api/v1/clients/:id
  */
-export const getClient = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getClient = async (req: AuthRequest, res: Response): Promise<Response | undefined> => {
   try {
     const { id } = req.params;
 
     if (!id) {
-      sendError(res, 'MISSING_CLIENT_ID', 'Client ID is required', 400);
+      return res.status(400).json(errorResponse('Client ID is required', 'MISSING_CLIENT_ID'));
       return;
     }
 
@@ -72,7 +72,7 @@ export const getClient = async (req: AuthRequest, res: Response): Promise<void> 
       clientId: id
     });
 
-    sendSuccess(res, result.data, 'Client retrieved successfully');
+    return res.json(successResponse(result.data, 'Client retrieved successfully'));
   } catch (error: any) {
     logger.error('Error retrieving client', {
       error: error.message,
@@ -81,9 +81,9 @@ export const getClient = async (req: AuthRequest, res: Response): Promise<void> 
     });
 
     if (error.message.includes('not found')) {
-      sendError(res, 'CLIENT_NOT_FOUND', 'Client not found', 404);
+      return res.status(404).json(errorResponse('Client not found', 'CLIENT_NOT_FOUND'));
     } else {
-      sendError(res, 'CLIENT_RETRIEVAL_FAILED', 'Failed to retrieve client', 500);
+      return res.status(500).json(errorResponse('Failed to retrieve client', 'CLIENT_RETRIEVAL_FAILED'));
     }
   }
 };
@@ -92,12 +92,12 @@ export const getClient = async (req: AuthRequest, res: Response): Promise<void> 
  * Create new client
  * POST /api/v1/clients
  */
-export const createClientController = async (req: AuthRequest, res: Response): Promise<void> => {
+export const createClientController = async (req: AuthRequest, res: Response): Promise<Response | undefined> => {
   try {
     const userId = req.user?.id;
 
     if (!userId) {
-      sendError(res, 'UNAUTHORIZED', 'User authentication required', 401);
+      return res.status(401).json(errorResponse('User authentication required', 'UNAUTHORIZED'));
       return;
     }
 
@@ -114,8 +114,7 @@ export const createClientController = async (req: AuthRequest, res: Response): P
 
     // Validate required fields
     if (!name) {
-      sendError(res, 'MISSING_REQUIRED_FIELDS', 'Missing required fields: name', 400);
-      return;
+      return res.status(400).json(errorResponse('Missing required fields: name', 'MISSING_REQUIRED_FIELDS'));
     }
 
     const clientData: CreateClientData = {
@@ -137,7 +136,7 @@ export const createClientController = async (req: AuthRequest, res: Response): P
       clientName: result.data.name
     });
 
-    sendSuccess(res, result.data, 'Client created successfully', 201);
+    return res.status(201).json(successResponse(result.data, 'Client created successfully'));
   } catch (error: any) {
     logger.error('Error creating client', {
       error: error.message,
@@ -145,7 +144,7 @@ export const createClientController = async (req: AuthRequest, res: Response): P
       body: req.body
     });
 
-    sendError(res, 'CLIENT_CREATION_FAILED', 'Failed to create client', 500);
+    return res.status(500).json(errorResponse('Failed to create client', 'CLIENT_CREATION_FAILED'));
   }
 };
 
@@ -153,18 +152,18 @@ export const createClientController = async (req: AuthRequest, res: Response): P
  * Update existing client
  * PUT /api/v1/clients/:id
  */
-export const updateClientController = async (req: AuthRequest, res: Response): Promise<void> => {
+export const updateClientController = async (req: AuthRequest, res: Response): Promise<Response | undefined> => {
   try {
     const userId = req.user?.id;
     const { id } = req.params;
 
     if (!userId) {
-      sendError(res, 'UNAUTHORIZED', 'User authentication required', 401);
+      return res.status(401).json(errorResponse('User authentication required', 'UNAUTHORIZED'));
       return;
     }
 
     if (!id) {
-      sendError(res, 'MISSING_CLIENT_ID', 'Client ID is required', 400);
+      return res.status(400).json(errorResponse('Client ID is required', 'MISSING_CLIENT_ID'));
       return;
     }
 
@@ -198,7 +197,7 @@ export const updateClientController = async (req: AuthRequest, res: Response): P
       clientName: result.data.name
     });
 
-    sendSuccess(res, result.data, 'Client updated successfully');
+    return res.json(successResponse(result.data, 'Client updated successfully'));
   } catch (error: any) {
     logger.error('Error updating client', {
       error: error.message,
@@ -208,9 +207,9 @@ export const updateClientController = async (req: AuthRequest, res: Response): P
     });
 
     if (error.message.includes('not found')) {
-      sendError(res, 'CLIENT_NOT_FOUND', 'Client not found', 404);
+      return res.status(404).json(errorResponse('Client not found', 'CLIENT_NOT_FOUND'));
     } else {
-      sendError(res, 'CLIENT_UPDATE_FAILED', 'Failed to update client', 500);
+      return res.status(500).json(errorResponse('Failed to update client', 'CLIENT_UPDATE_FAILED'));
     }
   }
 };
@@ -219,18 +218,18 @@ export const updateClientController = async (req: AuthRequest, res: Response): P
  * Delete client (soft delete)
  * DELETE /api/v1/clients/:id
  */
-export const deleteClientController = async (req: AuthRequest, res: Response): Promise<void> => {
+export const deleteClientController = async (req: AuthRequest, res: Response): Promise<Response | undefined> => {
   try {
     const userId = req.user?.id;
     const { id } = req.params;
 
     if (!userId) {
-      sendError(res, 'UNAUTHORIZED', 'User authentication required', 401);
+      return res.status(401).json(errorResponse('User authentication required', 'UNAUTHORIZED'));
       return;
     }
 
     if (!id) {
-      sendError(res, 'MISSING_CLIENT_ID', 'Client ID is required', 400);
+      return res.status(400).json(errorResponse('Client ID is required', 'MISSING_CLIENT_ID'));
       return;
     }
 
@@ -241,7 +240,7 @@ export const deleteClientController = async (req: AuthRequest, res: Response): P
       clientId: id
     });
 
-    sendSuccess(res, result, 'Client deleted successfully');
+    return res.json(successResponse(result, 'Client deleted successfully'));
   } catch (error: any) {
     logger.error('Error deleting client', {
       error: error.message,
@@ -250,9 +249,9 @@ export const deleteClientController = async (req: AuthRequest, res: Response): P
     });
 
     if (error.message.includes('not found')) {
-      sendError(res, 'CLIENT_NOT_FOUND', 'Client not found', 404);
+      return res.status(404).json(errorResponse('Client not found', 'CLIENT_NOT_FOUND'));
     } else {
-      sendError(res, 'CLIENT_DELETE_FAILED', 'Failed to delete client', 500);
+      return res.status(500).json(errorResponse('Failed to delete client', 'CLIENT_DELETE_FAILED'));
     }
   }
 };

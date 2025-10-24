@@ -27,6 +27,13 @@ export interface ProjectWithRelations extends Project {
     name: string;
     type: string;
   };
+  contact?: {
+    id: string;
+    name: string;
+    title?: string;
+    email?: string;
+    phone?: string;
+  };
   members: Array<{
     id: string;
     user: {
@@ -54,6 +61,7 @@ export interface CreateProjectData {
   name: string;
   project_number: string;
   client_id: string;
+  contact_id?: string;
   status?: ProjectStatus;
   type: ProjectType;
   billing_type: 'TIME_AND_MATERIALS' | 'LUMP_SUM' | 'SERVICE_CALL';
@@ -73,6 +81,7 @@ export interface UpdateProjectData {
   name?: string;
   project_number?: string;
   client_id?: string;
+  contact_id?: string;
   status?: ProjectStatus;
   type?: ProjectType;
   billing_type?: 'TIME_AND_MATERIALS' | 'LUMP_SUM' | 'SERVICE_CALL';
@@ -169,6 +178,15 @@ export const getAllProjects = async (
             type: true,
           },
         },
+        contact: {
+          select: {
+            id: true,
+            name: true,
+            title: true,
+            email: true,
+            phone: true,
+          },
+        },
         members: {
           include: {
             user: {
@@ -242,6 +260,15 @@ export const getProjectById = async (id: string): Promise<ProjectWithRelations |
             id: true,
             name: true,
             type: true,
+          },
+        },
+        contact: {
+          select: {
+            id: true,
+            name: true,
+            title: true,
+            email: true,
+            phone: true,
           },
         },
         members: {
@@ -336,6 +363,15 @@ export const createProject = async (
             id: true,
             name: true,
             type: true,
+          },
+        },
+        contact: {
+          select: {
+            id: true,
+            name: true,
+            title: true,
+            email: true,
+            phone: true,
           },
         },
         members: {

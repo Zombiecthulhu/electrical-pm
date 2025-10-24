@@ -5,7 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { Box, Container, Typography, Button, Alert } from '@mui/material';
 import { api, ApiResponse } from './services';
 import { useAuthStore, useThemeStore } from './store';
-import { Login, Dashboard, UserManagement, Settings, FileManagement } from './pages';
+import { Login, Dashboard, UserManagement, Settings, FileManagement, ClientManagement, ClientDetail } from './pages';
 import { ProjectList, ProjectForm, ProjectDetail } from './pages/Projects';
 import { AppLayout } from './components/layout';
 import { createAppTheme } from './theme/theme';
@@ -165,6 +165,38 @@ function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <FileManagement />
+                </AppLayout>
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Client Management Routes */}
+          <Route 
+            path="/clients" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ClientManagement />
+                </AppLayout>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/clients/:id" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ClientDetail />
+                </AppLayout>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/clients/:id/edit" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ClientManagement />
                 </AppLayout>
               </ProtectedRoute>
             } 

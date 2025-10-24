@@ -37,6 +37,8 @@ export { default as Dashboard } from './Dashboard';
 export { default as UserManagement } from './UserManagement';
 export { default as Settings } from './Settings';
 export { default as FileManagement } from './FileManagement';
+export { default as ClientManagement } from './ClientManagement';
+export { default as ClientDetail } from './ClientDetail';
 
 // Project pages
 export * from './Projects';
