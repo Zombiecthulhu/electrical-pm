@@ -29,12 +29,19 @@ api.interceptors.request.use(
       };
     }
 
+    // Add authorization header if token exists in localStorage
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
     // Log request (in development)
     if (process.env.NODE_ENV === 'development') {
       logger.info(`API Request: ${config.method?.toUpperCase()} ${config.url}`, {
         baseURL: config.baseURL,
         params: config.params,
         data: config.data,
+        hasAuth: !!token,
       });
     }
 

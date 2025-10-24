@@ -2,18 +2,18 @@
  * Authentication Routes
  * 
  * Handles all authentication-related endpoints:
- * - POST /register - User registration
  * - POST /login - User authentication
  * - POST /logout - User logout (requires authentication)
  * - GET /me - Get current user info (requires authentication)
  * - POST /refresh - Refresh access token
  * - PUT /password - Change password (requires authentication)
+ * 
+ * Note: User registration is now handled by admin-only endpoints
  */
 
 import express from 'express';
 import { authenticate } from '../middleware/auth.middleware';
 import {
-  register,
   login,
   logout,
   getCurrentUser,
@@ -24,7 +24,6 @@ import {
 const router = express.Router();
 
 // Public routes (no authentication required)
-router.post('/register', register);
 router.post('/login', login);
 router.post('/refresh', refreshToken);
 

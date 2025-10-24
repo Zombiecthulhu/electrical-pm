@@ -22,6 +22,7 @@ import {
   Login as LoginIcon,
 } from '@mui/icons-material';
 import { useAuthStore } from '../store';
+import { ServerStatus } from '../components/common';
 
 // Form validation interface
 interface FormErrors {
@@ -175,6 +176,7 @@ const Login: React.FC = () => {
         }}
       >
         <CardContent sx={{ p: 4 }}>
+          <ServerStatus />
           {/* Header */}
           <Box sx={{ textAlign: 'center', mb: 3 }}>
             <LoginIcon

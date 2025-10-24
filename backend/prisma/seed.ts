@@ -60,6 +60,42 @@ async function main() {
 
   console.log('Created field supervisor user:', supervisor.email);
 
+  // Create field worker user
+  const workerPassword = await bcrypt.hash('Worker@123', 12);
+  const worker = await prisma.user.upsert({
+    where: { email: 'worker@example.com' },
+    update: {},
+    create: {
+      email: 'worker@example.com',
+      password_hash: workerPassword,
+      role: 'FIELD_WORKER',
+      first_name: 'Mike',
+      last_name: 'Worker',
+      phone: '555-0103',
+      is_active: true,
+    },
+  });
+
+  console.log('Created field worker user:', worker.email);
+
+  // Create office admin user
+  const staffPassword = await bcrypt.hash('Staff@123', 12);
+  const staff = await prisma.user.upsert({
+    where: { email: 'staff@example.com' },
+    update: {},
+    create: {
+      email: 'staff@example.com',
+      password_hash: staffPassword,
+      role: 'OFFICE_ADMIN',
+      first_name: 'Sarah',
+      last_name: 'Staff',
+      phone: '555-0104',
+      is_active: true,
+    },
+  });
+
+  console.log('Created office admin user:', staff.email);
+
   // Create sample client
   const client = await prisma.client.create({
     data: {

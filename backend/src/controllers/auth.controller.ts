@@ -2,14 +2,15 @@
  * Authentication Controller
  * 
  * Handles user authentication endpoints:
- * - register: Create new user account
  * - login: Authenticate user and return tokens
  * - logout: Clear authentication cookies
  * - getCurrentUser: Get current user information
+ * 
+ * Note: User registration is now handled by admin-only endpoints
  */
 
 import { Request, Response } from 'express';
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { 
   hashPassword, 
   comparePassword, 
@@ -22,16 +23,6 @@ import { sendSuccess, sendError } from '../utils/response';
 const prisma = new PrismaClient();
 
 // Types
-interface RegisterRequest extends Request {
-  body: {
-    email: string;
-    password: string;
-    firstName: string;
-    lastName: string;
-    phone?: string;
-    role?: string;
-  };
-}
 
 interface LoginRequest extends Request {
   body: {
@@ -42,126 +33,14 @@ interface LoginRequest extends Request {
 
 interface AuthRequest extends Request {
   user?: {
-    userId: string;
-    role: UserRole;
-    email?: string;
+    id: string;
+    email: string;
+    role: string;
+    first_name: string;
+    last_name: string;
   };
 }
 
-/**
- * Register a new user
- * 
- * POST /api/v1/auth/register
- * 
- * @param req - Request with user data
- * @param res - Response
- */
-export async function register(req: RegisterRequest, res: Response): Promise<void> {
-  try {
-    const { email, password, firstName, lastName, phone, role = 'FIELD_WORKER' } = req.body;
-
-    // Validate required fields
-    if (!email || !password || !firstName || !lastName) {
-      logger.warn('Registration failed: Missing required fields', { email });
-      sendError(res, 'VALIDATION_ERROR', 'Missing required fields', 400);
-      return;
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      logger.warn('Registration failed: Invalid email format', { email });
-      sendError(res, 'VALIDATION_ERROR', 'Invalid email format', 400);
-      return;
-    }
-
-    // Validate password strength
-    const passwordValidation = validatePasswordStrength(password);
-    if (!passwordValidation.isValid) {
-      logger.warn('Registration failed: Weak password', { email });
-      sendError(res, 'VALIDATION_ERROR', 'Password does not meet requirements', 400);
-      return;
-    }
-
-    // Validate role
-    const validRoles = ['SUPER_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR', 'OFFICE_ADMIN', 'FIELD_WORKER', 'CLIENT_READ_ONLY'];
-    if (!validRoles.includes(role)) {
-      logger.warn('Registration failed: Invalid role', { email, role });
-      sendError(res, 'VALIDATION_ERROR', 'Invalid role', 400);
-      return;
-    }
-
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() }
-    });
-
-    if (existingUser) {
-      logger.warn('Registration failed: User already exists', { email });
-      sendError(res, 'USER_EXISTS', 'User with this email already exists', 409);
-      return;
-    }
-
-    // Hash password
-    const password_hash = await hashPassword(password);
-
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        email: email.toLowerCase(),
-        password_hash,
-        role: role as UserRole,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        phone: phone?.trim() || null,
-        is_active: true,
-      },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        first_name: true,
-        last_name: true,
-        phone: true,
-        avatar_url: true,
-        is_active: true,
-        created_at: true,
-        updated_at: true,
-      }
-    });
-
-    // Generate tokens
-    const { accessToken, refreshToken } = generateTokenPair(
-      user.id,
-      user.role,
-      user.email
-    );
-
-    // Set refresh token as HTTP-only cookie
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
-
-    logger.info('User registered successfully', {
-      userId: user.id,
-      email: user.email,
-      role: user.role
-    });
-
-    sendSuccess(res, {
-      user,
-      accessToken,
-      message: 'User registered successfully'
-    }, 'User registered successfully', 201);
-
-  } catch (error) {
-    logger.error('Registration error:', error);
-    sendError(res, 'INTERNAL_ERROR', 'Registration failed', 500);
-  }
-}
 
 /**
  * Login user
@@ -317,7 +196,7 @@ export async function getCurrentUser(req: AuthRequest, res: Response): Promise<v
 
     // Get fresh user data from database
     const user = await prisma.user.findUnique({
-      where: { id: req.user.userId },
+      where: { id: req.user.id },
       select: {
         id: true,
         email: true,
@@ -334,7 +213,7 @@ export async function getCurrentUser(req: AuthRequest, res: Response): Promise<v
     });
 
     if (!user) {
-      logger.warn('Get current user failed: User not found', { userId: req.user.userId });
+      logger.warn('Get current user failed: User not found', { userId: req.user.id });
       sendError(res, 'USER_NOT_FOUND', 'User not found', 404);
       return;
     }
@@ -468,7 +347,7 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
 
     // Get user with password hash
     const user = await prisma.user.findUnique({
-      where: { id: req.user.userId },
+      where: { id: req.user.id },
       select: {
         id: true,
         password_hash: true,
@@ -526,7 +405,6 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
 
 // Export all controller functions
 export default {
-  register,
   login,
   logout,
   getCurrentUser,

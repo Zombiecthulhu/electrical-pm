@@ -24,6 +24,7 @@ export { errorHandler, AppError } from './error-handler';
 // Authentication & Authorization middleware
 export * from './auth.middleware';
 export { default as authMiddleware } from './auth.middleware';
+export * from './authorization.middleware';
 
 // Additional middleware will be exported here as they are created
 

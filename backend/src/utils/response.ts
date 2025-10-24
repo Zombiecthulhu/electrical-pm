@@ -129,3 +129,27 @@ export const sendNoContent = (res: Response): Response => {
   return res.status(204).send();
 };
 
+/**
+ * Send success response with custom format
+ */
+export const successResponse = <T>(
+  res: Response,
+  data: T,
+  message?: string,
+  statusCode: number = 200
+): Response => {
+  return sendSuccess(res, data, message, statusCode);
+};
+
+/**
+ * Send error response with custom format
+ */
+export const errorResponse = (
+  res: Response,
+  message: string,
+  statusCode: number = 400,
+  code: string = 'ERROR'
+): Response => {
+  return sendError(res, code, message, statusCode);
+};
+

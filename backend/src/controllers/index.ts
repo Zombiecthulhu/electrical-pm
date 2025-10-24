@@ -13,3 +13,6 @@
 export * from './auth.controller';
 export { default as authController } from './auth.controller';
 
+// Admin Controller
+export * from './admin.controller';
+

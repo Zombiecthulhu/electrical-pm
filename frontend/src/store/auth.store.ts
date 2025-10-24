@@ -39,6 +39,9 @@ export const useAuthStore = create<AuthState>()(
           try {
             const response = await authService.login(credentials);
             
+            // Store access token in localStorage
+            localStorage.setItem('accessToken', response.accessToken);
+            
             set({
               user: response.user,
               isAuthenticated: true,
@@ -66,6 +69,9 @@ export const useAuthStore = create<AuthState>()(
             // Even if logout fails on server, clear local state
             console.error('Logout error:', error);
           } finally {
+            // Clear access token from localStorage
+            localStorage.removeItem('accessToken');
+            
             set({
               user: null,
               isAuthenticated: false,
@@ -81,6 +87,9 @@ export const useAuthStore = create<AuthState>()(
           
           try {
             const response = await authService.register(userData);
+            
+            // Store access token in localStorage
+            localStorage.setItem('accessToken', response.accessToken);
             
             set({
               user: response.user,

@@ -19,5 +19,5 @@
  */
 
 // Layout components will be exported here as they are created
-export {};
+export { default as AppLayout } from './AppLayout';
 

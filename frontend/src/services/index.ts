@@ -33,6 +33,10 @@ export type { ApiResponse, ApiError } from './api';
 export { default as authService } from './auth.service';
 export * from './auth.service';
 
+// Export admin service
+export { default as adminService } from './admin.service';
+export * from './admin.service';
+
 // Services will be exported here as they are created
 // export * from './projectService';
 

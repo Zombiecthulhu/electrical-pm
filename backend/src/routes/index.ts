@@ -37,9 +37,13 @@ router.get('/health', (_req, res) => {
 
 // Import route modules
 import authRoutes from './auth.routes';
+import adminRoutes from './admin.routes';
+import healthRoutes from './health.routes';
 
 // Mount route modules
 router.use('/auth', authRoutes);
+router.use('/admin', adminRoutes);
+router.use('/health', healthRoutes);
 
 // Additional route modules will be added here as they are created
 // Example:
@@ -48,6 +52,7 @@ router.use('/auth', authRoutes);
 
 // Export individual route modules for direct use if needed
 export { default as authRoutes } from './auth.routes';
+export { default as adminRoutes } from './admin.routes';
 
 export default router;
 

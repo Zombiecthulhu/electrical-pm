@@ -1,24 +1,53 @@
 import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box, Container, Typography, Button, Alert } from '@mui/material';
-import theme from './theme';
 import { api, ApiResponse } from './services';
-import { useAuthStore } from './store';
+import { useAuthStore, useThemeStore } from './store';
+import { Login, Dashboard, UserManagement, Settings } from './pages';
+import { AppLayout } from './components/layout';
+import { createAppTheme } from './theme/theme';
 
+// Theme Provider Component
+const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentTheme, mode } = useThemeStore();
+  const theme = createAppTheme(currentTheme, mode);
+
+  return (
+    <ThemeProvider theme={theme}>
+      {children}
+    </ThemeProvider>
+  );
+};
+
+// Protected Route Component
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isLoading = useAuthStore((state) => state.isLoading);
+
+  if (isLoading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+        }}
+      >
+        <Typography>Loading...</Typography>
+      </Box>
+    );
+  }
+
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+};
+
+// Main App Component
 function App() {
   const [apiStatus, setApiStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [apiMessage, setApiMessage] = useState<string>('');
-  
-  // Zustand auth store - use individual selectors to prevent re-renders
-  const user = useAuthStore((state) => state.user);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const isLoading = useAuthStore((state) => state.isLoading);
-  const error = useAuthStore((state) => state.error);
-  const login = useAuthStore((state) => state.login);
-  const logout = useAuthStore((state) => state.logout);
-  const checkAuth = useAuthStore((state) => state.checkAuth);
-  const clearError = useAuthStore((state) => state.clearError);
 
   // Test API connection on component mount
   useEffect(() => {
@@ -36,156 +65,54 @@ function App() {
     testApiConnection();
   }, []);
 
-  const handleTestApi = async () => {
-    setApiStatus('loading');
-    setApiMessage('Testing API connection...');
-    
-    try {
-      const response: ApiResponse = await api.get('/health');
-      setApiStatus('success');
-      setApiMessage(`API Connected: ${response.message}`);
-    } catch (error: any) {
-      setApiStatus('error');
-      setApiMessage(`API Error: ${error.error?.message || 'Connection failed'}`);
-    }
-  };
-
-  const handleTestLogin = async () => {
-    setApiStatus('loading');
-    setApiMessage('Testing login...');
-    
-    try {
-      await login({
-        email: 'admin@example.com',
-        password: 'Admin@123'
-      });
-      setApiStatus('success');
-      setApiMessage('Login successful! Check authentication status above.');
-    } catch (error: any) {
-      setApiStatus('error');
-      setApiMessage(`Login failed: ${error.message}`);
-    }
-  };
-
-  const handleTestLogout = async () => {
-    setApiStatus('loading');
-    setApiMessage('Testing logout...');
-    
-    try {
-      await logout();
-      setApiStatus('success');
-      setApiMessage('Logout successful!');
-    } catch (error: any) {
-      setApiStatus('error');
-      setApiMessage(`Logout failed: ${error.message}`);
-    }
-  };
-
   return (
-    <ThemeProvider theme={theme}>
-      {/* CssBaseline for consistent baseline styles */}
+    <AppThemeProvider>
       <CssBaseline />
-      
-      <Container maxWidth="lg">
-        <Box
-          sx={{
-            minHeight: '100vh',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
-          }}
-        >
-          <Typography
-            variant="h1"
-            color="primary"
-            gutterBottom
-            sx={{
-              fontWeight: 700,
-              mb: 2,
-            }}
-          >
-            Welcome
-          </Typography>
+      <Router>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/login" element={<Login />} />
           
-          <Typography
-            variant="h4"
-            color="text.secondary"
-            gutterBottom
-          >
-            Electrical Construction Project Management System
-          </Typography>
+          {/* Protected Routes */}
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Dashboard />
+                </AppLayout>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/users" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <UserManagement />
+                </AppLayout>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/settings" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Settings />
+                </AppLayout>
+              </ProtectedRoute>
+            } 
+          />
           
-          <Typography
-            variant="body1"
-            color="text.secondary"
-            sx={{ mt: 2, mb: 3 }}
-          >
-            Your project is ready to start building!
-          </Typography>
-
-          {/* API Status */}
-          <Box sx={{ mb: 3, maxWidth: 600 }}>
-            {apiStatus === 'loading' && (
-              <Alert severity="info">Testing API connection...</Alert>
-            )}
-            {apiStatus === 'success' && (
-              <Alert severity="success">{apiMessage}</Alert>
-            )}
-            {apiStatus === 'error' && (
-              <Alert severity="error">{apiMessage}</Alert>
-            )}
-          </Box>
-
-          {/* Authentication Status */}
-          <Box sx={{ mb: 3, maxWidth: 600 }}>
-            {isLoading && (
-              <Alert severity="info">Authentication in progress...</Alert>
-            )}
-            {isAuthenticated && user && (
-              <Alert severity="success">
-                Authenticated as: {user.first_name} {user.last_name} ({user.role})
-              </Alert>
-            )}
-            {!isAuthenticated && !isLoading && (
-              <Alert severity="warning">Not authenticated</Alert>
-            )}
-            {error && (
-              <Alert severity="error" onClose={clearError}>
-                Auth Error: {error}
-              </Alert>
-            )}
-          </Box>
-
-          {/* Test Buttons */}
-          <Box sx={{ display: 'flex', gap: 2, mt: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
-            <Button
-              variant="contained"
-              onClick={handleTestApi}
-              disabled={apiStatus === 'loading'}
-            >
-              Test API Connection
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={handleTestLogin}
-              disabled={apiStatus === 'loading' || isLoading}
-            >
-              Test Login
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={handleTestLogout}
-              disabled={apiStatus === 'loading' || isLoading || !isAuthenticated}
-              color="secondary"
-            >
-              Test Logout
-            </Button>
-          </Box>
-        </Box>
-      </Container>
-    </ThemeProvider>
+          {/* Default redirect */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          
+          {/* Catch all - redirect to login */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </Router>
+    </AppThemeProvider>
   );
 }
 

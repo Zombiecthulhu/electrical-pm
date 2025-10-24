@@ -1,1 +1,18 @@
 Password hard coded in the backend .env file?
+Material-UI Grid API - The grid componentapi has changed in newer versions
+
+
+
+***************************************************
+backend npx prisma studio
+
+cd "C:\Users\johnj\Desktop\Project Management App\backend"
+npm run dev
+
+cd "C:\Users\johnj\Desktop\Project Management App\frontend"
+npm start
+
+
+Backend: Will run on http://localhost:5000
+Frontend: Will run on http://localhost:3000 and automatically open in your browser
+Prisma Studio: Will run on http://localhost:5555 and open in your browser

@@ -6,17 +6,22 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { extractTokenFromHeader, verifyToken, DecodedToken } from '../services/auth.service';
 import { logger } from '../utils/logger';
+
+const prisma = new PrismaClient();
 
 /**
  * Extended Request interface with user information
  */
 export interface AuthRequest extends Request {
   user?: {
-    userId: string;
+    id: string;
+    email: string;
     role: string;
-    email?: string;
+    first_name: string;
+    last_name: string;
   };
 }
 
@@ -37,11 +42,11 @@ export interface AuthRequest extends Request {
  * @param res - Express response
  * @param next - Express next function
  */
-export function authenticate(
+export async function authenticate(
   req: AuthRequest,
   res: Response,
   next: NextFunction
-): void {
+): Promise<void> {
   try {
     // Try to extract token from Authorization header first
     let token = extractTokenFromHeader(req.headers.authorization);
@@ -72,16 +77,51 @@ export function authenticate(
     // Verify token
     const decoded: DecodedToken = verifyToken(token);
     
+    // Fetch full user data from database
+    const user = await prisma.user.findUnique({
+      where: { 
+        id: decoded.userId,
+        deleted_at: null
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        first_name: true,
+        last_name: true,
+        is_active: true
+      }
+    });
+
+    if (!user || !user.is_active) {
+      logger.warn('Authentication failed: User not found or inactive', {
+        userId: decoded.userId,
+        ip: req.ip,
+        path: req.path,
+      });
+      
+      res.status(401).json({
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'User not found or inactive'
+        }
+      });
+      return;
+    }
+    
     // Attach user info to request
     req.user = {
-      userId: decoded.userId,
-      role: decoded.role,
-      email: decoded.email,
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      first_name: user.first_name,
+      last_name: user.last_name,
     };
     
     logger.info('User authenticated successfully', {
-      userId: decoded.userId,
-      role: decoded.role,
+      userId: user.id,
+      role: user.role,
       path: req.path,
     });
     
@@ -133,11 +173,11 @@ export function authenticate(
  * @param res - Express response
  * @param next - Express next function
  */
-export function optionalAuthenticate(
+export async function optionalAuthenticate(
   req: AuthRequest,
   _res: Response,
   next: NextFunction
-): void {
+): Promise<void> {
   try {
     // Try to extract token
     let token = extractTokenFromHeader(req.headers.authorization);
@@ -156,17 +196,39 @@ export function optionalAuthenticate(
     // Try to verify token
     const decoded: DecodedToken = verifyToken(token);
     
-    // Attach user info to request
-    req.user = {
-      userId: decoded.userId,
-      role: decoded.role,
-      email: decoded.email,
-    };
-    
-    logger.info('Optional auth: User authenticated', {
-      userId: decoded.userId,
-      role: decoded.role,
+    // Fetch full user data from database
+    const user = await prisma.user.findUnique({
+      where: { 
+        id: decoded.userId,
+        deleted_at: null
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        first_name: true,
+        last_name: true,
+        is_active: true
+      }
     });
+
+    if (user && user.is_active) {
+      // Attach user info to request
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        first_name: user.first_name,
+        last_name: user.last_name,
+      };
+      
+      logger.info('Optional auth: User authenticated', {
+        userId: user.id,
+        role: user.role,
+      });
+    } else {
+      logger.info('Optional auth: User not found or inactive, continuing as guest');
+    }
     
     next();
     
@@ -231,7 +293,7 @@ export function authorize(allowedRoles: string | string[]) {
       
       if (!hasPermission) {
         logger.warn('Authorization failed: Insufficient permissions', {
-          userId: req.user.userId,
+          userId: req.user.id,
           userRole: req.user.role,
           requiredRoles: rolesArray,
           path: req.path,
@@ -248,7 +310,7 @@ export function authorize(allowedRoles: string | string[]) {
       }
       
       logger.info('Authorization successful', {
-        userId: req.user.userId,
+        userId: req.user.id,
         role: req.user.role,
         path: req.path,
       });
@@ -325,7 +387,7 @@ export function authorizeMinRole(minRole: string) {
       
       if (!hasPermission) {
         logger.warn('Authorization failed: Insufficient role level', {
-          userId: req.user.userId,
+          userId: req.user.id,
           userRole: req.user.role,
           userLevel: userRoleLevel,
           minRole,
@@ -344,7 +406,7 @@ export function authorizeMinRole(minRole: string) {
       }
       
       logger.info('Hierarchical authorization successful', {
-        userId: req.user.userId,
+        userId: req.user.id,
         role: req.user.role,
         minRole,
         path: req.path,
@@ -403,7 +465,7 @@ export function authorizeOwnership(
       // SUPER_ADMIN can access anything
       if (req.user.role === 'SUPER_ADMIN') {
         logger.info('Ownership check bypassed for SUPER_ADMIN', {
-          userId: req.user.userId,
+          userId: req.user.id,
           path: req.path,
         });
         next();
@@ -414,9 +476,9 @@ export function authorizeOwnership(
       const resourceOwnerId = await getUserIdFromRequest(req);
       
       // Check if user owns the resource
-      if (req.user.userId !== resourceOwnerId) {
+      if (req.user.id !== resourceOwnerId) {
         logger.warn('Authorization failed: User does not own resource', {
-          userId: req.user.userId,
+          userId: req.user.id,
           resourceOwnerId,
           path: req.path,
         });
@@ -432,7 +494,7 @@ export function authorizeOwnership(
       }
       
       logger.info('Ownership authorization successful', {
-        userId: req.user.userId,
+        userId: req.user.id,
         path: req.path,
       });
       
@@ -521,7 +583,7 @@ export function isOwnerOrAdmin(req: AuthRequest, resourceOwnerId: string): boole
   }
   
   // Check ownership
-  return req.user.userId === resourceOwnerId;
+  return req.user.id === resourceOwnerId;
 }
 
 // Export all middleware and helpers
