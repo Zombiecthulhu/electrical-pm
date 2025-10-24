@@ -38,3 +38,6 @@ export * from './client-project.service';
 // Daily Log Service
 export * from './daily-log.service';
 
+// Quote Service
+export * from './quote.service';
+

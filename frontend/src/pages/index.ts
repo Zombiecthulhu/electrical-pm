@@ -40,6 +40,7 @@ export { default as FileManagement } from './FileManagement';
 export { default as ClientManagement } from './ClientManagement';
 export { default as ClientDetail } from './ClientDetail';
 export { default as DailyLogManagement } from './DailyLogManagement';
+export { default as QuoteManagement } from './QuoteManagement';
 
 // Project pages
 export * from './Projects';

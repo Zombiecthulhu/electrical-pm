@@ -42,3 +42,8 @@ export { default as DailyLogList } from './DailyLogList';
 export { default as DailyLogForm } from './DailyLogForm';
 export { default as DailyLogDetail } from './DailyLogDetail';
 
+// Quote management module
+export { default as QuoteList } from './QuoteList';
+export { default as QuoteForm } from './QuoteForm';
+export { default as QuoteDetail } from './QuoteDetail';
+

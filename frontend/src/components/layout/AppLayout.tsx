@@ -32,6 +32,7 @@ import {
   AccountCircle,
   Folder,
   Work,
+  RequestQuote,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store';
@@ -78,6 +79,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     { text: 'Documents', icon: <Description />, path: '/documents' },
     { text: 'Photos', icon: <PhotoCamera />, path: '/photos' },
     { text: 'Daily Logs', icon: <Work />, path: '/daily-logs' },
+    { text: 'Quotes', icon: <RequestQuote />, path: '/quotes' },
     { text: 'Users', icon: <People />, path: '/admin/users' },
     { text: 'Settings', icon: <Settings />, path: '/settings' },
   ];

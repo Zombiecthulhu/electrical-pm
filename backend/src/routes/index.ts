@@ -45,6 +45,7 @@ import clientContactRoutes from './client-contact.routes';
 import clientProjectRoutes from './client-project.routes';
 import fileRoutes from './file.routes';
 import dailyLogRoutes from './daily-log.routes';
+import quoteRoutes from './quote.routes';
 
 // Mount route modules
 router.use('/auth', authRoutes);
@@ -56,6 +57,7 @@ router.use('/clients', clientContactRoutes);
 router.use('/clients', clientProjectRoutes);
 router.use('/files', fileRoutes);
 router.use('/daily-logs', dailyLogRoutes);
+router.use('/quotes', quoteRoutes);
 
 // Additional route modules will be added here as they are created
 // Example:

@@ -44,4 +44,5 @@ export {
 } from './project.store';
 export { useClientStore } from './client.store';
 export { useDailyLogStore } from './daily-log.store';
+export { default as useQuoteStore } from './quote.store';
 

@@ -55,3 +55,7 @@ export * from './client-project.service';
 export { default as dailyLogService } from './daily-log.service';
 export * from './daily-log.service';
 
+// Export quote service
+export { default as quoteService } from './quote.service';
+export * from './quote.service';
+
