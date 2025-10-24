@@ -31,6 +31,7 @@
  * export { ProjectsPage } from './ProjectsPage';
  */
 
-// Pages will be exported here as they are created
-export {};
+// Pages exports
+export { default as Login } from './Login';
+export { default as Dashboard } from './Dashboard';
 
