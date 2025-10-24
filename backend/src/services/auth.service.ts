@@ -11,10 +11,6 @@ import { logger } from '../utils/logger';
 
 // Constants
 const BCRYPT_SALT_ROUNDS = 12;
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30m';
-const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'your-refresh-secret-change-in-production';
-const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
 
 // Types
 export interface TokenPayload {
@@ -119,6 +115,10 @@ export function generateToken(
       throw new Error('userId and role are required');
     }
 
+    const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+    const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30m';
+    
+    logger.info('JWT_SECRET value:', { JWT_SECRET: JWT_SECRET, length: JWT_SECRET?.length });
     if (!JWT_SECRET || JWT_SECRET === 'your-secret-key-change-in-production') {
       logger.error('JWT_SECRET is not configured properly');
       throw new Error('JWT configuration error');
@@ -130,11 +130,11 @@ export function generateToken(
       ...(email && { email }),
     };
 
-    const token = jwt.sign(payload, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN,
+    const token = jwt.sign(payload, JWT_SECRET as string, {
+      expiresIn: JWT_EXPIRES_IN as string,
       issuer: 'electrical-pm-system',
       audience: 'electrical-pm-client',
-    });
+    } as jwt.SignOptions);
 
     logger.info('Access token generated successfully', { userId, role });
 
@@ -162,6 +162,9 @@ export function generateRefreshToken(userId: string, role: string): string {
       throw new Error('userId and role are required');
     }
 
+    const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'your-refresh-secret-change-in-production';
+    const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
+
     if (!REFRESH_TOKEN_SECRET || REFRESH_TOKEN_SECRET === 'your-refresh-secret-change-in-production') {
       logger.error('REFRESH_TOKEN_SECRET is not configured properly');
       throw new Error('JWT configuration error');
@@ -172,11 +175,11 @@ export function generateRefreshToken(userId: string, role: string): string {
       role,
     };
 
-    const token = jwt.sign(payload, REFRESH_TOKEN_SECRET, {
-      expiresIn: REFRESH_TOKEN_EXPIRES_IN,
+    const token = jwt.sign(payload, REFRESH_TOKEN_SECRET as string, {
+      expiresIn: REFRESH_TOKEN_EXPIRES_IN as string,
       issuer: 'electrical-pm-system',
       audience: 'electrical-pm-client',
-    });
+    } as jwt.SignOptions);
 
     logger.info('Refresh token generated successfully', { userId });
 
@@ -230,6 +233,8 @@ export function verifyToken(token: string): DecodedToken {
       throw new Error('Token is required');
     }
 
+    const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
     if (!JWT_SECRET || JWT_SECRET === 'your-secret-key-change-in-production') {
       logger.error('JWT_SECRET is not configured properly');
       throw new Error('JWT configuration error');
@@ -272,6 +277,8 @@ export function verifyRefreshToken(token: string): DecodedToken {
     if (!token) {
       throw new Error('Token is required');
     }
+
+    const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'your-refresh-secret-change-in-production';
 
     if (!REFRESH_TOKEN_SECRET || REFRESH_TOKEN_SECRET === 'your-refresh-secret-change-in-production') {
       logger.error('REFRESH_TOKEN_SECRET is not configured properly');
@@ -321,7 +328,7 @@ export function extractTokenFromHeader(authHeader?: string): string | null {
     return null;
   }
 
-  return parts[1];
+  return parts[1] || null;
 }
 
 /**

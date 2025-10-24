@@ -9,7 +9,7 @@
  */
 
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 import { 
   hashPassword, 
   comparePassword, 
@@ -43,7 +43,7 @@ interface LoginRequest extends Request {
 interface AuthRequest extends Request {
   user?: {
     userId: string;
-    role: string;
+    role: UserRole;
     email?: string;
   };
 }
@@ -63,9 +63,7 @@ export async function register(req: RegisterRequest, res: Response): Promise<voi
     // Validate required fields
     if (!email || !password || !firstName || !lastName) {
       logger.warn('Registration failed: Missing required fields', { email });
-      res.status(400).json(sendError('Missing required fields', 'VALIDATION_ERROR', {
-        required: ['email', 'password', 'firstName', 'lastName']
-      }));
+      sendError(res, 'VALIDATION_ERROR', 'Missing required fields', 400);
       return;
     }
 
@@ -73,7 +71,7 @@ export async function register(req: RegisterRequest, res: Response): Promise<voi
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       logger.warn('Registration failed: Invalid email format', { email });
-      res.status(400).json(sendError('Invalid email format', 'VALIDATION_ERROR'));
+      sendError(res, 'VALIDATION_ERROR', 'Invalid email format', 400);
       return;
     }
 
@@ -81,9 +79,7 @@ export async function register(req: RegisterRequest, res: Response): Promise<voi
     const passwordValidation = validatePasswordStrength(password);
     if (!passwordValidation.isValid) {
       logger.warn('Registration failed: Weak password', { email });
-      res.status(400).json(sendError('Password does not meet requirements', 'VALIDATION_ERROR', {
-        errors: passwordValidation.errors
-      }));
+      sendError(res, 'VALIDATION_ERROR', 'Password does not meet requirements', 400);
       return;
     }
 
@@ -91,9 +87,7 @@ export async function register(req: RegisterRequest, res: Response): Promise<voi
     const validRoles = ['SUPER_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR', 'OFFICE_ADMIN', 'FIELD_WORKER', 'CLIENT_READ_ONLY'];
     if (!validRoles.includes(role)) {
       logger.warn('Registration failed: Invalid role', { email, role });
-      res.status(400).json(sendError('Invalid role', 'VALIDATION_ERROR', {
-        validRoles
-      }));
+      sendError(res, 'VALIDATION_ERROR', 'Invalid role', 400);
       return;
     }
 
@@ -104,7 +98,7 @@ export async function register(req: RegisterRequest, res: Response): Promise<voi
 
     if (existingUser) {
       logger.warn('Registration failed: User already exists', { email });
-      res.status(409).json(sendError('User with this email already exists', 'USER_EXISTS'));
+      sendError(res, 'USER_EXISTS', 'User with this email already exists', 409);
       return;
     }
 
@@ -116,7 +110,7 @@ export async function register(req: RegisterRequest, res: Response): Promise<voi
       data: {
         email: email.toLowerCase(),
         password_hash,
-        role,
+        role: role as UserRole,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         phone: phone?.trim() || null,
@@ -157,15 +151,15 @@ export async function register(req: RegisterRequest, res: Response): Promise<voi
       role: user.role
     });
 
-    res.status(201).json(sendSuccess({
+    sendSuccess(res, {
       user,
       accessToken,
       message: 'User registered successfully'
-    }));
+    }, 'User registered successfully', 201);
 
   } catch (error) {
     logger.error('Registration error:', error);
-    res.status(500).json(sendError('Registration failed', 'INTERNAL_ERROR'));
+    sendError(res, 'INTERNAL_ERROR', 'Registration failed', 500);
   }
 }
 
@@ -184,7 +178,7 @@ export async function login(req: LoginRequest, res: Response): Promise<void> {
     // Validate required fields
     if (!email || !password) {
       logger.warn('Login failed: Missing credentials');
-      res.status(400).json(sendError('Email and password are required', 'VALIDATION_ERROR'));
+      sendError(res, 'VALIDATION_ERROR', 'Email and password are required', 400);
       return;
     }
 
@@ -195,21 +189,21 @@ export async function login(req: LoginRequest, res: Response): Promise<void> {
 
     if (!user) {
       logger.warn('Login failed: User not found', { email });
-      res.status(401).json(sendError('Invalid credentials', 'INVALID_CREDENTIALS'));
+      sendError(res, 'INVALID_CREDENTIALS', 'Invalid credentials', 401);
       return;
     }
 
     // Check if user is active
     if (!user.is_active) {
       logger.warn('Login failed: User account disabled', { userId: user.id, email });
-      res.status(401).json(sendError('Account is disabled', 'ACCOUNT_DISABLED'));
+      sendError(res, 'ACCOUNT_DISABLED', 'Account is disabled', 401);
       return;
     }
 
     // Check if user is soft deleted
     if (user.deleted_at) {
       logger.warn('Login failed: User account deleted', { userId: user.id, email });
-      res.status(401).json(sendError('Account not found', 'ACCOUNT_NOT_FOUND'));
+      sendError(res, 'ACCOUNT_NOT_FOUND', 'Account not found', 401);
       return;
     }
 
@@ -217,7 +211,7 @@ export async function login(req: LoginRequest, res: Response): Promise<void> {
     const isValidPassword = await comparePassword(password, user.password_hash);
     if (!isValidPassword) {
       logger.warn('Login failed: Invalid password', { userId: user.id, email });
-      res.status(401).json(sendError('Invalid credentials', 'INVALID_CREDENTIALS'));
+      sendError(res, 'INVALID_CREDENTIALS', 'Invalid credentials', 401);
       return;
     }
 
@@ -263,15 +257,15 @@ export async function login(req: LoginRequest, res: Response): Promise<void> {
       role: user.role
     });
 
-    res.json(sendSuccess({
+    sendSuccess(res, {
       user: userData,
       accessToken,
       message: 'Login successful'
-    }));
+    }, 'Login successful');
 
   } catch (error) {
     logger.error('Login error:', error);
-    res.status(500).json(sendError('Login failed', 'INTERNAL_ERROR'));
+    sendError(res, 'INTERNAL_ERROR', 'Login failed', 500);
   }
 }
 
@@ -283,7 +277,7 @@ export async function login(req: LoginRequest, res: Response): Promise<void> {
  * @param req - Request
  * @param res - Response
  */
-export async function logout(req: Request, res: Response): Promise<void> {
+export async function logout(_req: Request, res: Response): Promise<void> {
   try {
     // Clear refresh token cookie
     res.clearCookie('refreshToken', {
@@ -294,13 +288,13 @@ export async function logout(req: Request, res: Response): Promise<void> {
 
     logger.info('User logged out successfully');
 
-    res.json(sendSuccess({
+    sendSuccess(res, {
       message: 'Logout successful'
-    }));
+    }, 'Logout successful');
 
   } catch (error) {
     logger.error('Logout error:', error);
-    res.status(500).json(sendError('Logout failed', 'INTERNAL_ERROR'));
+    sendError(res, 'INTERNAL_ERROR', 'Logout failed', 500);
   }
 }
 
@@ -317,7 +311,7 @@ export async function getCurrentUser(req: AuthRequest, res: Response): Promise<v
     // User should be attached by authenticate middleware
     if (!req.user) {
       logger.warn('Get current user failed: No user in request');
-      res.status(401).json(sendError('Authentication required', 'NOT_AUTHENTICATED'));
+      sendError(res, 'NOT_AUTHENTICATED', 'Authentication required', 401);
       return;
     }
 
@@ -341,14 +335,14 @@ export async function getCurrentUser(req: AuthRequest, res: Response): Promise<v
 
     if (!user) {
       logger.warn('Get current user failed: User not found', { userId: req.user.userId });
-      res.status(404).json(sendError('User not found', 'USER_NOT_FOUND'));
+      sendError(res, 'USER_NOT_FOUND', 'User not found', 404);
       return;
     }
 
     // Check if user is still active
     if (!user.is_active) {
       logger.warn('Get current user failed: User account disabled', { userId: user.id });
-      res.status(401).json(sendError('Account is disabled', 'ACCOUNT_DISABLED'));
+      sendError(res, 'ACCOUNT_DISABLED', 'Account is disabled', 401);
       return;
     }
 
@@ -358,14 +352,14 @@ export async function getCurrentUser(req: AuthRequest, res: Response): Promise<v
       role: user.role
     });
 
-    res.json(sendSuccess({
+    sendSuccess(res, {
       user,
       message: 'User information retrieved successfully'
-    }));
+    }, 'User information retrieved successfully');
 
   } catch (error) {
     logger.error('Get current user error:', error);
-    res.status(500).json(sendError('Failed to get user information', 'INTERNAL_ERROR'));
+    sendError(res, 'INTERNAL_ERROR', 'Failed to get user information', 500);
   }
 }
 
@@ -384,7 +378,7 @@ export async function refreshToken(req: Request, res: Response): Promise<void> {
 
     if (!refreshToken) {
       logger.warn('Token refresh failed: No refresh token');
-      res.status(401).json(sendError('Refresh token required', 'NO_REFRESH_TOKEN'));
+      sendError(res, 'NO_REFRESH_TOKEN', 'Refresh token required', 401);
       return;
     }
 
@@ -406,14 +400,14 @@ export async function refreshToken(req: Request, res: Response): Promise<void> {
 
     if (!user) {
       logger.warn('Token refresh failed: User not found', { userId: decoded.userId });
-      res.status(401).json(sendError('Invalid refresh token', 'INVALID_REFRESH_TOKEN'));
+      sendError(res, 'INVALID_REFRESH_TOKEN', 'Invalid refresh token', 401);
       return;
     }
 
     // Check if user is still active
     if (!user.is_active || user.deleted_at) {
       logger.warn('Token refresh failed: User account disabled or deleted', { userId: user.id });
-      res.status(401).json(sendError('Account is disabled', 'ACCOUNT_DISABLED'));
+      sendError(res, 'ACCOUNT_DISABLED', 'Account is disabled', 401);
       return;
     }
 
@@ -437,14 +431,14 @@ export async function refreshToken(req: Request, res: Response): Promise<void> {
       email: user.email
     });
 
-    res.json(sendSuccess({
+    sendSuccess(res, {
       accessToken,
       message: 'Token refreshed successfully'
-    }));
+    }, 'Token refreshed successfully');
 
   } catch (error) {
     logger.error('Token refresh error:', error);
-    res.status(401).json(sendError('Invalid refresh token', 'INVALID_REFRESH_TOKEN'));
+    sendError(res, 'INVALID_REFRESH_TOKEN', 'Invalid refresh token', 401);
   }
 }
 
@@ -462,13 +456,13 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
 
     // Validate required fields
     if (!currentPassword || !newPassword) {
-      res.status(400).json(sendError('Current password and new password are required', 'VALIDATION_ERROR'));
+      sendError(res, 'VALIDATION_ERROR', 'Current password and new password are required', 400);
       return;
     }
 
     // User should be attached by authenticate middleware
     if (!req.user) {
-      res.status(401).json(sendError('Authentication required', 'NOT_AUTHENTICATED'));
+      sendError(res, 'NOT_AUTHENTICATED', 'Authentication required', 401);
       return;
     }
 
@@ -484,13 +478,13 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
     });
 
     if (!user) {
-      res.status(404).json(sendError('User not found', 'USER_NOT_FOUND'));
+      sendError(res, 'USER_NOT_FOUND', 'User not found', 404);
       return;
     }
 
     // Check if user is still active
     if (!user.is_active || user.deleted_at) {
-      res.status(401).json(sendError('Account is disabled', 'ACCOUNT_DISABLED'));
+      sendError(res, 'ACCOUNT_DISABLED', 'Account is disabled', 401);
       return;
     }
 
@@ -498,16 +492,14 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
     const isValidPassword = await comparePassword(currentPassword, user.password_hash);
     if (!isValidPassword) {
       logger.warn('Password change failed: Invalid current password', { userId: user.id });
-      res.status(401).json(sendError('Current password is incorrect', 'INVALID_CURRENT_PASSWORD'));
+      sendError(res, 'INVALID_CURRENT_PASSWORD', 'Current password is incorrect', 401);
       return;
     }
 
     // Validate new password strength
     const passwordValidation = validatePasswordStrength(newPassword);
     if (!passwordValidation.isValid) {
-      res.status(400).json(sendError('New password does not meet requirements', 'VALIDATION_ERROR', {
-        errors: passwordValidation.errors
-      }));
+      sendError(res, 'VALIDATION_ERROR', 'New password does not meet requirements', 400);
       return;
     }
 
@@ -522,13 +514,13 @@ export async function changePassword(req: AuthRequest, res: Response): Promise<v
 
     logger.info('Password changed successfully', { userId: user.id });
 
-    res.json(sendSuccess({
+    sendSuccess(res, {
       message: 'Password changed successfully'
-    }));
+    }, 'Password changed successfully');
 
   } catch (error) {
     logger.error('Password change error:', error);
-    res.status(500).json(sendError('Password change failed', 'INTERNAL_ERROR'));
+    sendError(res, 'INTERNAL_ERROR', 'Password change failed', 500);
   }
 }
 

@@ -135,7 +135,7 @@ export function authenticate(
  */
 export function optionalAuthenticate(
   req: AuthRequest,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): void {
   try {

@@ -35,10 +35,19 @@ router.get('/health', (_req, res) => {
   });
 });
 
-// Individual route modules will be imported and mounted here
+// Import route modules
+import authRoutes from './auth.routes';
+
+// Mount route modules
+router.use('/auth', authRoutes);
+
+// Additional route modules will be added here as they are created
 // Example:
-// import { authRoutes } from './auth.routes';
-// router.use('/auth', authRoutes);
+// import projectRoutes from './project.routes';
+// router.use('/projects', projectRoutes);
+
+// Export individual route modules for direct use if needed
+export { default as authRoutes } from './auth.routes';
 
 export default router;
 
