@@ -252,7 +252,7 @@ const useQuoteStore = create<QuoteState>()(
     }),
     {
       name: 'quote-store',
-      partialize: (state) => ({
+      partialize: (state: QuoteState) => ({
         filters: state.filters,
         pagination: state.pagination
       })
@@ -260,4 +260,5 @@ const useQuoteStore = create<QuoteState>()(
   )
 );
 
+export { useQuoteStore };
 export default useQuoteStore;

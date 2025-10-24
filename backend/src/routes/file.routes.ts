@@ -1,62 +1,115 @@
 /**
  * File Routes
  * 
- * Defines API endpoints for file upload, download, and management operations.
+ * Defines API endpoints for file management operations.
  * All routes require authentication and appropriate authorization.
  */
 
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth.middleware';
-import { authorize } from '../middleware/authorization.middleware';
+import multer from 'multer';
+import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 import {
-  uploadSingleFile,
-  uploadMultipleFiles,
-  getFile,
-  getProjectFiles,
-  downloadFileById,
-  getFilePreview,
-  deleteFileById,
-  getFileStatistics,
-  searchFiles
+  uploadFileHandler,
+  getFileByIdHandler,
+  listFilesHandler,
+  updateFileHandler,
+  deleteFileHandler,
+  permanentDeleteFileHandler,
+  downloadFileHandler,
+  viewFileHandler,
+  downloadThumbnailHandler,
+  toggleFavoriteHandler,
+  getFileStatisticsHandler
 } from '../controllers/file.controller';
 
 const router = Router();
 
-// All file routes require authentication
+// Configure multer for file uploads (memory storage)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: parseInt(process.env.MAX_FILE_SIZE || '52428800') // 50MB default
+  }
+});
+
+// Apply authentication to all routes
 router.use(authenticate);
 
 /**
- * File Upload Routes
- * POST /api/v1/files/upload - Upload single file
- * POST /api/v1/files/upload-multiple - Upload multiple files
+ * @route   POST /api/v1/files/upload
+ * @desc    Upload a file
+ * @access  Private (Authenticated users)
  */
-router.post('/upload', authorize('files', 'create'), uploadSingleFile);
-router.post('/upload-multiple', authorize('files', 'create'), uploadMultipleFiles);
+router.post('/upload', upload.single('file'), uploadFileHandler);
 
 /**
- * File Retrieval Routes
- * GET /api/v1/files/:id - Get file metadata
- * GET /api/v1/files/project/:projectId - Get files by project
- * GET /api/v1/files/stats - Get file statistics
- * GET /api/v1/files/search - Search files
+ * @route   GET /api/v1/files/stats
+ * @desc    Get file statistics
+ * @access  Private (Authenticated users)
  */
-router.get('/:id', authorize('files', 'read'), getFile);
-router.get('/project/:projectId', authorize('files', 'read'), getProjectFiles);
-router.get('/stats', authorize('files', 'read'), getFileStatistics);
-router.get('/search', authorize('files', 'read'), searchFiles);
+router.get('/stats', getFileStatisticsHandler);
 
 /**
- * File Download Routes
- * GET /api/v1/files/:id/download - Download file
- * GET /api/v1/files/:id/preview - Get file preview/thumbnail
+ * @route   GET /api/v1/files
+ * @desc    List files with filtering and pagination
+ * @access  Private (Authenticated users)
  */
-router.get('/:id/download', authorize('files', 'read'), downloadFileById);
-router.get('/:id/preview', authorize('files', 'read'), getFilePreview);
+router.get('/', listFilesHandler);
 
 /**
- * File Management Routes
- * DELETE /api/v1/files/:id - Delete file (soft delete)
+ * @route   GET /api/v1/files/:id
+ * @desc    Get file by ID
+ * @access  Private (Authenticated users)
  */
-router.delete('/:id', authorize('files', 'delete'), deleteFileById);
+router.get('/:id', getFileByIdHandler);
+
+/**
+ * @route   PUT /api/v1/files/:id
+ * @desc    Update file metadata
+ * @access  Private (Authenticated users)
+ */
+router.put('/:id', updateFileHandler);
+
+/**
+ * @route   DELETE /api/v1/files/:id
+ * @desc    Soft delete file
+ * @access  Private (Authenticated users)
+ */
+router.delete('/:id', deleteFileHandler);
+
+/**
+ * @route   DELETE /api/v1/files/:id/permanent
+ * @desc    Permanently delete file
+ * @access  Private (SUPER_ADMIN only)
+ */
+router.delete('/:id/permanent', authorizeRoles(['SUPER_ADMIN']), permanentDeleteFileHandler);
+
+/**
+ * @route   GET /api/v1/files/:id/download
+ * @desc    Download file
+ * @access  Private (Authenticated users)
+ */
+router.get('/:id/download', downloadFileHandler);
+
+/**
+ * @route   GET /api/v1/files/:id/view
+ * @desc    View file inline (for images, PDFs)
+ * @access  Private (Authenticated users)
+ */
+router.get('/:id/view', viewFileHandler);
+
+/**
+ * @route   GET /api/v1/files/:id/thumbnail
+ * @desc    Download thumbnail
+ * @access  Private (Authenticated users)
+ */
+router.get('/:id/thumbnail', downloadThumbnailHandler);
+
+/**
+ * @route   PATCH /api/v1/files/:id/favorite
+ * @desc    Toggle favorite status
+ * @access  Private (Authenticated users)
+ */
+router.patch('/:id/favorite', toggleFavoriteHandler);
 
 export default router;

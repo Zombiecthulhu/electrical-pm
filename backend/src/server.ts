@@ -7,9 +7,16 @@ import rateLimit from 'express-rate-limit';
 import { logger } from './utils/logger';
 import { errorHandler } from './middleware/error-handler';
 import apiRouter from './routes';
+import { initializeStorage } from './utils/storage.util';
 
 // Load environment variables
 dotenv.config();
+
+// Initialize storage directories
+initializeStorage().catch((error) => {
+  logger.error('Failed to initialize storage', { error });
+  process.exit(1);
+});
 
 // Initialize Express app
 const app: Application = express();

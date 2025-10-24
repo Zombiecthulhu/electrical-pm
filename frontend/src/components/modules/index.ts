@@ -29,9 +29,6 @@
 
 // Module components will be exported here as they are created
 
-// File management module
-export { default as FileManager } from './FileManager';
-
 // Client management module
 export { default as ClientList } from './ClientList';
 export { default as ClientForm } from './ClientForm';
@@ -46,4 +43,8 @@ export { default as DailyLogDetail } from './DailyLogDetail';
 export { default as QuoteList } from './QuoteList';
 export { default as QuoteForm } from './QuoteForm';
 export { default as QuoteDetail } from './QuoteDetail';
+
+// File management module
+export { default as FileUploadDialog } from './FileUploadDialog';
+export { default as FileManager } from './FileManager';
 

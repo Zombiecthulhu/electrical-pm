@@ -7,6 +7,7 @@ import { api, ApiResponse } from './services';
 import { useAuthStore, useThemeStore } from './store';
 import { Login, Dashboard, UserManagement, Settings, FileManagement, ClientManagement, ClientDetail, DailyLogManagement, QuoteManagement } from './pages';
 import { ProjectList, ProjectForm, ProjectDetail } from './pages/Projects';
+import { DocumentBrowser } from './pages/Documents';
 import { AppLayout } from './components/layout';
 import { createAppTheme } from './theme/theme';
 
@@ -221,7 +222,31 @@ function App() {
                   <QuoteManagement />
                 </AppLayout>
               </ProtectedRoute>
-            } 
+            }
+          />
+
+          {/* File Management Routes */}
+          <Route 
+            path="/files" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <FileManagement />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Document Browser Routes */}
+          <Route 
+            path="/documents" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <DocumentBrowser />
+                </AppLayout>
+              </ProtectedRoute>
+            }
           />
           
           {/* Default redirect */}

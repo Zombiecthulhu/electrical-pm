@@ -1,25 +1,16 @@
 /**
  * File Manager Component
  * 
- * A comprehensive file management interface that combines file upload,
- * file listing, and file operations for a specific project.
+ * Displays and manages uploaded files with filtering, search, and actions.
+ * Supports file upload via dialog, viewing, downloading, and metadata editing.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
+  Card,
+  CardContent,
   Typography,
-  Tabs,
-  Tab,
-  Paper,
-  Alert,
-  Snackbar,
-  CircularProgress,
-  Fab,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   TextField,
   FormControl,
@@ -27,390 +18,463 @@ import {
   Select,
   MenuItem,
   Chip,
-  Autocomplete,
+  IconButton,
+  Grid,
+  Alert,
+  InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Tooltip
 } from '@mui/material';
 import {
-  Add,
-  CloudUpload,
-  Folder,
-  Search,
-  FilterList,
+  CloudUpload as UploadIcon,
+  Search as SearchIcon,
+  FilterList as FilterIcon,
+  Visibility as ViewIcon,
+  Download as DownloadIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
+  Refresh as RefreshIcon,
+  Image as ImageIcon,
+  Description as DocumentIcon,
+  Folder as FolderIcon
 } from '@mui/icons-material';
-import { FileUpload } from '../common/FileUpload';
-import { FileList } from '../common/FileList';
-import { fileService, File, FileCategory } from '../../services/file.service';
-import { useFileUpload } from '../../hooks/useFileUpload';
+import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
+import FileUploadDialog from './FileUploadDialog';
+import fileService, { FileData, FileFilters } from '../../services/file.service';
 
-export interface FileManagerProps {
+interface FileManagerProps {
   projectId?: string;
-  className?: string;
+  dailyLogId?: string;
+  defaultCategory?: string;
 }
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel({ children, value, index, ...other }: TabPanelProps) {
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`file-tabpanel-${index}`}
-      aria-labelledby={`file-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-}
-
-/**
- * File Manager Component
- */
-export const FileManager: React.FC<FileManagerProps> = ({
+const FileManager: React.FC<FileManagerProps> = ({
   projectId,
-  className,
+  dailyLogId,
+  defaultCategory
 }) => {
-  const [activeTab, setActiveTab] = useState(0);
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<FileData[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<FileCategory | null>(null);
-  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [selectedFile, setSelectedFile] = useState<FileData | null>(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  // File upload hook
-  const {
-    state: uploadState,
-    uploadFiles,
-    clearErrors,
-    reset: resetUpload,
-  } = useFileUpload({
-    projectId,
-    category: FileCategory.OTHER,
-    onSuccess: (uploadedFiles) => {
-      setFiles(prev => [...uploadedFiles, ...prev]);
-      setSuccessMessage(`${uploadedFiles.length} file(s) uploaded successfully`);
-      setUploadDialogOpen(false);
-      resetUpload();
-    },
-    onError: (error) => {
-      setError(error);
-    },
-  });
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalFiles, setTotalFiles] = useState(0);
 
-  // Load files
-  const loadFiles = useCallback(async () => {
-    if (!projectId) return;
-
-    setLoading(true);
-    setError(null);
-
+  const loadFiles = async () => {
     try {
-      const response = await fileService.getProjectFiles(projectId, {
-        page: 1,
-        limit: 100, // Load more files for better UX
+      setLoading(true);
+      setError(null);
+
+      const filters: FileFilters = {
+        projectId,
+        dailyLogId,
+        category: categoryFilter || undefined,
+        search: searchTerm || undefined,
+        isFavorite: favoritesOnly || undefined
+      };
+
+      const response = await fileService.listFiles(filters, {
+        page: page + 1, // API uses 1-based pagination
+        limit: pageSize
       });
 
-      if (response.success && response.data) {
-        setFiles(response.data.files);
-        
-        // Extract unique tags
-        const tags = new Set<string>();
-        response.data.files.forEach(file => {
-          file.tags.forEach(tag => tags.add(tag));
-        });
-        setAvailableTags(Array.from(tags));
-      } else {
-        throw new Error(response.error?.message || 'Failed to load files');
-      }
+      setFiles(response.files);
+      setTotalFiles(response.pagination.total);
     } catch (err: any) {
       setError(err.message || 'Failed to load files');
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
-
-  // Load files on mount and when project changes
-  useEffect(() => {
-    loadFiles();
-  }, [loadFiles]);
-
-  // Handle tab change
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
   };
 
-  // Handle file download
-  const handleDownload = useCallback(async (file: File) => {
-    try {
-      const blob = await fileService.downloadFile(file.id);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = file.original_filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (err: any) {
-      setError(err.message || 'Failed to download file');
-    }
-  }, []);
+  useEffect(() => {
+    loadFiles();
+  }, [page, pageSize, categoryFilter, favoritesOnly, projectId, dailyLogId]);
 
-  // Handle file preview
-  const handlePreview = useCallback(async (file: File) => {
-    try {
-      const blob = await fileService.getFilePreview(file.id);
-      const url = window.URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      // Clean up the URL after a delay
-      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to preview file');
-    }
-  }, []);
+  const handleSearch = () => {
+    setPage(0);
+    loadFiles();
+  };
 
-  // Handle file delete
-  const handleDelete = useCallback(async (file: File) => {
+  const handleUpload = async (data: any) => {
     try {
-      const response = await fileService.deleteFile(file.id);
-      if (response.success) {
-        setFiles(prev => prev.filter(f => f.id !== file.id));
-        setSuccessMessage('File deleted successfully');
-      } else {
-        throw new Error(response.error?.message || 'Failed to delete file');
-      }
+      await fileService.uploadFile({
+        file: data.file,
+        category: data.category,
+        description: data.description,
+        tags: data.tags,
+        folderPath: data.folderPath,
+        projectId: data.projectId,
+        dailyLogId: data.dailyLogId
+      });
+
+      setSuccess('File uploaded successfully');
+      loadFiles();
+    } catch (err: any) {
+      throw new Error(err.message || 'Upload failed');
+    }
+  };
+
+  const handleToggleFavorite = async (file: FileData) => {
+    try {
+      await fileService.toggleFavorite(file.id);
+      setSuccess(`${file.is_favorite ? 'Removed from' : 'Added to'} favorites`);
+      loadFiles();
+    } catch (err: any) {
+      setError(err.message || 'Failed to update favorite status');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedFile) return;
+
+    try {
+      await fileService.deleteFile(selectedFile.id);
+      setSuccess('File deleted successfully');
+      setDeleteDialogOpen(false);
+      setSelectedFile(null);
+      loadFiles();
     } catch (err: any) {
       setError(err.message || 'Failed to delete file');
     }
-  }, []);
+  };
 
-  // Handle category filter
-  const handleCategoryFilter = useCallback((category: FileCategory | null) => {
-    setSelectedCategory(category);
-  }, []);
+  const handleView = (file: FileData) => {
+    setSelectedFile(file);
+    setViewDialogOpen(true);
+  };
 
-  // Handle search
-  const handleSearch = useCallback(async () => {
-    if (!projectId || !searchQuery.trim()) {
-      loadFiles();
-      return;
+  const handleDownload = (file: FileData) => {
+    const url = fileService.getDownloadUrl(file.id);
+    window.open(url, '_blank');
+  };
+
+  const getFileIcon = (file: FileData) => {
+    if (file.mime_type.startsWith('image/')) {
+      return <ImageIcon color="primary" />;
     }
+    return <DocumentIcon color="action" />;
+  };
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fileService.searchFiles({
-        q: searchQuery,
-        projectId,
-        category: selectedCategory || undefined,
-        page: 1,
-        limit: 100,
-      });
-
-      if (response.success && response.data) {
-        setFiles(response.data.files);
-      } else {
-        throw new Error(response.error?.message || 'Search failed');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Search failed');
-    } finally {
-      setLoading(false);
+  const columns: GridColDef[] = [
+    {
+      field: 'icon',
+      headerName: '',
+      width: 60,
+      sortable: false,
+      renderCell: (params) => getFileIcon(params.row)
+    },
+    {
+      field: 'original_filename',
+      headerName: 'File Name',
+      flex: 1,
+      minWidth: 200
+    },
+    {
+      field: 'category',
+      headerName: 'Category',
+      width: 130,
+      renderCell: (params) => (
+        <Chip
+          label={fileService.getCategoryDisplayName(params.value)}
+          size="small"
+          color="primary"
+          variant="outlined"
+        />
+      )
+    },
+    {
+      field: 'file_size',
+      headerName: 'Size',
+      width: 100,
+      renderCell: (params) => fileService.formatFileSize(params.value)
+    },
+    {
+      field: 'uploaded_at',
+      headerName: 'Uploaded',
+      width: 150,
+      renderCell: (params) => new Date(params.value).toLocaleDateString()
+    },
+    {
+      field: 'uploader',
+      headerName: 'Uploaded By',
+      width: 150,
+      renderCell: (params) => `${params.value.first_name} ${params.value.last_name}`
+    },
+    {
+      field: 'is_favorite',
+      headerName: 'Fav',
+      width: 70,
+      renderCell: (params) => (
+        <IconButton
+          size="small"
+          onClick={() => handleToggleFavorite(params.row)}
+        >
+          {params.value ? <StarIcon color="warning" /> : <StarBorderIcon />}
+        </IconButton>
+      )
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 150,
+      sortable: false,
+      renderCell: (params) => (
+        <Box display="flex" gap={0.5}>
+          <Tooltip title="View">
+            <IconButton size="small" onClick={() => handleView(params.row)}>
+              <ViewIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Download">
+            <IconButton size="small" onClick={() => handleDownload(params.row)}>
+              <DownloadIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <IconButton
+              size="small"
+              onClick={() => {
+                setSelectedFile(params.row);
+                setDeleteDialogOpen(true);
+              }}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )
     }
-  }, [projectId, searchQuery, selectedCategory, loadFiles]);
-
-  // Handle upload dialog close
-  const handleUploadDialogClose = () => {
-    setUploadDialogOpen(false);
-    resetUpload();
-    clearErrors();
-  };
-
-  // Handle success message close
-  const handleSuccessClose = () => {
-    setSuccessMessage(null);
-  };
-
-  // Handle error close
-  const handleErrorClose = () => {
-    setError(null);
-  };
+  ];
 
   return (
-    <Box className={className}>
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          File Manager
-        </Typography>
-        {projectId && (
-          <Typography variant="body1" color="text.secondary">
-            Manage files for this project
-          </Typography>
-        )}
-      </Box>
+    <Box>
+      <Card>
+        <CardContent>
+          {/* Header */}
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+            <Typography variant="h5">
+              File Manager
+            </Typography>
+            <Box display="flex" gap={1}>
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={loadFiles}
+              >
+                Refresh
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<UploadIcon />}
+                onClick={() => setUploadDialogOpen(true)}
+              >
+                Upload File
+              </Button>
+            </Box>
+          </Box>
 
-      {/* Search and Filter Bar */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-          <TextField
-            placeholder="Search files..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            size="small"
-            sx={{ minWidth: 200 }}
-            InputProps={{
-              startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />,
-            }}
-          />
-          
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Category</InputLabel>
-            <Select
-              value={selectedCategory || ''}
-              onChange={(e) => setSelectedCategory(e.target.value as FileCategory || null)}
-              label="Category"
+          {/* Alerts */}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
+          {success && (
+            <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+              {success}
+            </Alert>
+          )}
+
+          {/* Filters */}
+          <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: 'repeat(4, 1fr)' }} gap={2} mb={3}>
+            <TextField
+              fullWidth
+              label="Search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={handleSearch} size="small">
+                      <SearchIcon />
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
+            <FormControl fullWidth>
+              <InputLabel>Category</InputLabel>
+              <Select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                label="Category"
+              >
+                <MenuItem value="">All Categories</MenuItem>
+                <MenuItem value="DOCUMENT">Document</MenuItem>
+                <MenuItem value="PHOTO">Photo</MenuItem>
+                <MenuItem value="PLAN">Plan</MenuItem>
+                <MenuItem value="SPEC">Specification</MenuItem>
+                <MenuItem value="PERMIT">Permit</MenuItem>
+                <MenuItem value="CONTRACT">Contract</MenuItem>
+                <MenuItem value="INVOICE">Invoice</MenuItem>
+                <MenuItem value="RECEIPT">Receipt</MenuItem>
+                <MenuItem value="REPORT">Report</MenuItem>
+                <MenuItem value="OTHER">Other</MenuItem>
+              </Select>
+            </FormControl>
+            <Button
+              variant={favoritesOnly ? 'contained' : 'outlined'}
+              startIcon={<StarIcon />}
+              onClick={() => setFavoritesOnly(!favoritesOnly)}
+              sx={{ height: '56px' }}
             >
-              <MenuItem value="">All Categories</MenuItem>
-              {Object.values(FileCategory).map(category => (
-                <MenuItem key={category} value={category}>
-                  {category}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              Favorites Only
+            </Button>
+          </Box>
 
-          <Button
-            variant="contained"
-            onClick={handleSearch}
-            startIcon={<Search />}
-            disabled={loading}
-          >
-            Search
-          </Button>
-
-          <Button
-            variant="outlined"
-            onClick={loadFiles}
-            disabled={loading}
-          >
-            Refresh
-          </Button>
-        </Box>
-      </Paper>
-
-      {/* Tabs */}
-      <Paper sx={{ mb: 3 }}>
-        <Tabs value={activeTab} onChange={handleTabChange}>
-          <Tab
-            icon={<Folder />}
-            label="All Files"
-            iconPosition="start"
-          />
-          <Tab
-            icon={<CloudUpload />}
-            label="Upload Files"
-            iconPosition="start"
-          />
-        </Tabs>
-
-        <TabPanel value={activeTab} index={0}>
-          <FileList
-            files={files}
-            loading={loading}
-            onDownload={handleDownload}
-            onPreview={handlePreview}
-            onDelete={handleDelete}
-            onCategoryFilter={handleCategoryFilter}
-            selectedCategory={selectedCategory}
-          />
-        </TabPanel>
-
-        <TabPanel value={activeTab} index={1}>
-          <FileUpload
-            projectId={projectId}
-            category={FileCategory.OTHER}
-            maxFiles={10}
-            onSuccess={(uploadedFiles: File[]) => {
-              setFiles(prev => [...uploadedFiles, ...prev]);
-              setSuccessMessage(`${uploadedFiles.length} file(s) uploaded successfully`);
-            }}
-            onError={setError}
-          />
-        </TabPanel>
-      </Paper>
-
-      {/* Floating Action Button */}
-      <Fab
-        color="primary"
-        aria-label="upload files"
-        sx={{
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-        }}
-        onClick={() => setUploadDialogOpen(true)}
-      >
-        <Add />
-      </Fab>
+          {/* Data Grid */}
+          <Box sx={{ height: 600, width: '100%' }}>
+            <DataGrid
+              rows={files}
+              columns={columns}
+              loading={loading}
+              pageSizeOptions={[10, 20, 50, 100]}
+              paginationMode="server"
+              rowCount={totalFiles}
+              paginationModel={{ page, pageSize }}
+              onPaginationModelChange={(model) => {
+                setPage(model.page);
+                setPageSize(model.pageSize);
+              }}
+              disableRowSelectionOnClick
+            />
+          </Box>
+        </CardContent>
+      </Card>
 
       {/* Upload Dialog */}
-      <Dialog
+      <FileUploadDialog
         open={uploadDialogOpen}
-        onClose={handleUploadDialogClose}
+        onClose={() => setUploadDialogOpen(false)}
+        onUpload={handleUpload}
+        projectId={projectId}
+        dailyLogId={dailyLogId}
+        defaultCategory={defaultCategory}
+      />
+
+      {/* View Dialog */}
+      <Dialog
+        open={viewDialogOpen}
+        onClose={() => setViewDialogOpen(false)}
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Upload Files</DialogTitle>
+        <DialogTitle>
+          {selectedFile?.original_filename}
+        </DialogTitle>
         <DialogContent>
-          <FileUpload
-            projectId={projectId}
-            category={FileCategory.OTHER}
-            maxFiles={10}
-            onSuccess={(uploadedFiles: File[]) => {
-              setFiles(prev => [...uploadedFiles, ...prev]);
-              setSuccessMessage(`${uploadedFiles.length} file(s) uploaded successfully`);
-              handleUploadDialogClose();
-            }}
-            onError={setError}
-          />
+          {selectedFile && (
+            <Box>
+              {selectedFile.mime_type.startsWith('image/') ? (
+                <Box
+                  component="img"
+                  src={fileService.getViewUrl(selectedFile.id)}
+                  alt={selectedFile.original_filename}
+                  sx={{ width: '100%', height: 'auto', maxHeight: '70vh', objectFit: 'contain' }}
+                />
+              ) : (
+                <Box textAlign="center" py={4}>
+                  <DocumentIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
+                  <Typography variant="body1" gutterBottom>
+                    Preview not available for this file type
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<DownloadIcon />}
+                    onClick={() => handleDownload(selectedFile)}
+                    sx={{ mt: 2 }}
+                  >
+                    Download File
+                  </Button>
+                </Box>
+              )}
+              <Box mt={2}>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Category:</strong> {fileService.getCategoryDisplayName(selectedFile.category)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Size:</strong> {fileService.formatFileSize(selectedFile.file_size)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Uploaded:</strong> {new Date(selectedFile.uploaded_at).toLocaleString()}
+                </Typography>
+                {selectedFile.description && (
+                  <Typography variant="body2" color="text.secondary">
+                    <strong>Description:</strong> {selectedFile.description}
+                  </Typography>
+                )}
+                {selectedFile.tags.length > 0 && (
+                  <Box mt={1}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      <strong>Tags:</strong>
+                    </Typography>
+                    <Box display="flex" gap={0.5} flexWrap="wrap">
+                      {selectedFile.tags.map((tag) => (
+                        <Chip key={tag} label={tag} size="small" />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleUploadDialogClose}>Close</Button>
+          <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
+          {selectedFile && (
+            <Button
+              variant="contained"
+              startIcon={<DownloadIcon />}
+              onClick={() => handleDownload(selectedFile)}
+            >
+              Download
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 
-      {/* Success Snackbar */}
-      <Snackbar
-        open={!!successMessage}
-        autoHideDuration={6000}
-        onClose={handleSuccessClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert onClose={handleSuccessClose} severity="success">
-          {successMessage}
-        </Alert>
-      </Snackbar>
-
-      {/* Error Snackbar */}
-      <Snackbar
-        open={!!error}
-        autoHideDuration={6000}
-        onClose={handleErrorClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert onClose={handleErrorClose} severity="error">
-          {error}
-        </Alert>
-      </Snackbar>
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete "{selectedFile?.original_filename}"?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleDelete} color="error" variant="contained">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

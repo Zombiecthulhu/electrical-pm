@@ -23,7 +23,7 @@
 // Common components will be exported here as they are created
 export { default as ServerStatus } from './ServerStatus';
 
-// File components
-export { default as FileUpload } from './FileUpload';
-export { default as FileList } from './FileList';
+// File components - old versions, use FileManager instead
+// export { default as FileUpload } from './FileUpload';
+// export { default as FileList } from './FileList';
 

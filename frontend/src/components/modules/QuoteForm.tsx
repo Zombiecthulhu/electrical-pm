@@ -13,7 +13,6 @@ import {
   Typography,
   TextField,
   Button,
-  Grid,
   IconButton,
   Divider,
   FormControl,
@@ -69,6 +68,9 @@ interface FormData {
   notes: string;
   valid_until: Date | null;
   status: QuoteStatus;
+  subtotal?: number;
+  tax?: number;
+  total?: number;
 }
 
 const QuoteForm: React.FC<QuoteFormProps> = ({
@@ -77,7 +79,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({
   onCancel,
   loading = false
 }) => {
-  const { clients, fetchClients } = useClientStore();
+  const { clients, loadClients } = useClientStore();
   const [lineItemErrors, setLineItemErrors] = useState<Record<string, string[]>>({});
   const [showCalculations, setShowCalculations] = useState(false);
 
@@ -108,9 +110,9 @@ const QuoteForm: React.FC<QuoteFormProps> = ({
   // Load clients on mount
   useEffect(() => {
     if (clients.length === 0) {
-      fetchClients();
+      loadClients();
     }
-  }, [clients.length, fetchClients]);
+  }, [clients.length, loadClients]);
 
   // Calculate totals when line items change
   useEffect(() => {
@@ -187,9 +189,9 @@ const QuoteForm: React.FC<QuoteFormProps> = ({
               {quote ? 'Edit Quote' : 'Create New Quote'}
             </Typography>
 
-            <Grid container spacing={3}>
+            <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: '1fr 1fr' }} gap={3}>
               {/* Client Selection */}
-              <Grid item xs={12} md={6}>
+              <Box>
                 <Controller
                   name="client_id"
                   control={control}
@@ -216,10 +218,10 @@ const QuoteForm: React.FC<QuoteFormProps> = ({
                     {errors.client_id.message}
                   </Typography>
                 )}
-              </Grid>
+              </Box>
 
               {/* Project Name */}
-              <Grid item xs={12} md={6}>
+              <Box>
                 <Controller
                   name="project_name"
                   control={control}
@@ -235,10 +237,10 @@ const QuoteForm: React.FC<QuoteFormProps> = ({
                     />
                   )}
                 />
-              </Grid>
+              </Box>
 
               {/* Status */}
-              <Grid item xs={12} md={6}>
+              <Box>
                 <Controller
                   name="status"
                   control={control}
@@ -263,10 +265,10 @@ const QuoteForm: React.FC<QuoteFormProps> = ({
                     </FormControl>
                   )}
                 />
-              </Grid>
+              </Box>
 
               {/* Valid Until */}
-              <Grid item xs={12} md={6}>
+              <Box>
                 <Controller
                   name="valid_until"
                   control={control}
@@ -275,16 +277,20 @@ const QuoteForm: React.FC<QuoteFormProps> = ({
                       {...field}
                       label="Valid Until"
                       disabled={loading}
-                      renderInput={(params) => (
-                        <TextField {...params} fullWidth />
-                      )}
+                      slotProps={{
+                        textField: {
+                          fullWidth: true
+                        }
+                      }}
                     />
                   )}
                 />
-              </Grid>
+              </Box>
+            </Box>
 
+            <Box mt={3}>
               {/* Notes */}
-              <Grid item xs={12}>
+              <Box>
                 <Controller
                   name="notes"
                   control={control}
@@ -299,8 +305,8 @@ const QuoteForm: React.FC<QuoteFormProps> = ({
                     />
                   )}
                 />
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
 
             <Divider sx={{ my: 3 }} />
 
@@ -428,24 +434,24 @@ const QuoteForm: React.FC<QuoteFormProps> = ({
             {showCalculations && (
               <Box mt={3}>
                 <Typography variant="h6" gutterBottom>Calculations</Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={4}>
+                <Box display="grid" gridTemplateColumns="1fr 1fr 1fr" gap={2}>
+                  <Box>
                     <TextField
                       label="Subtotal"
                       value={quoteService.formatCurrency(totals.subtotal)}
                       disabled
                       fullWidth
                     />
-                  </Grid>
-                  <Grid item xs={4}>
+                  </Box>
+                  <Box>
                     <TextField
                       label="Tax (8%)"
                       value={quoteService.formatCurrency(totals.tax)}
                       disabled
                       fullWidth
                     />
-                  </Grid>
-                  <Grid item xs={4}>
+                  </Box>
+                  <Box>
                     <TextField
                       label="Total"
                       value={quoteService.formatCurrency(totals.total)}
@@ -455,8 +461,8 @@ const QuoteForm: React.FC<QuoteFormProps> = ({
                         sx: { fontWeight: 'bold', fontSize: '1.1rem' }
                       }}
                     />
-                  </Grid>
-                </Grid>
+                  </Box>
+                </Box>
               </Box>
             )}
 

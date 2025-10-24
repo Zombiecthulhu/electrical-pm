@@ -90,7 +90,9 @@ export const getAllDailyLogs = async (
     } = filters;
 
     const { page = 1, limit = 20 } = pagination;
-    const skip = (page - 1) * limit;
+    // Ensure page is at least 1 (handle 0-based pagination from frontend)
+    const actualPage = Math.max(1, page);
+    const skip = (actualPage - 1) * limit;
 
     // Build where clause
     const where: any = {};
@@ -147,7 +149,7 @@ export const getAllDailyLogs = async (
     logger.info('Daily logs retrieved successfully', {
       count: dailyLogs.length,
       total,
-      page,
+      page: actualPage,
       limit,
       filters,
     });

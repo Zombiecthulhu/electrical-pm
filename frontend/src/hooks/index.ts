@@ -32,7 +32,10 @@
  * export { useDebounce } from './useDebounce';
  */
 
-// File upload hook
-export { useFileUpload } from './useFileUpload';
-export type { FileUploadState, FileUploadOptions, FileUploadResult } from './useFileUpload';
+// File upload hook - old version, use FileManager instead
+// export { useFileUpload } from './useFileUpload';
+// export type { FileUploadState, FileUploadOptions, FileUploadResult } from './useFileUpload';
+
+// Make this a module
+export {};
 

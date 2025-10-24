@@ -1,13 +1,13 @@
 /**
  * File Service
  * 
- * Handles file upload, download, and management operations on the frontend.
- * Provides a clean interface for interacting with the file API endpoints.
+ * Handles API communication for file management operations.
+ * Provides type-safe methods for file upload, download, and management.
  */
 
 import api, { ApiResponse } from './api';
 
-// File category enum (matches backend)
+// File category enum
 export enum FileCategory {
   DOCUMENT = 'DOCUMENT',
   PHOTO = 'PHOTO',
@@ -16,318 +16,225 @@ export enum FileCategory {
   PERMIT = 'PERMIT',
   CONTRACT = 'CONTRACT',
   INVOICE = 'INVOICE',
+  RECEIPT = 'RECEIPT',
+  REPORT = 'REPORT',
   OTHER = 'OTHER'
 }
 
-// File interface (matches backend Prisma model)
-export interface File {
+export interface FileUploadRequest {
+  file: File;
+  category: string;
+  projectId?: string;
+  dailyLogId?: string;
+  description?: string;
+  tags?: string[];
+  folderPath?: string;
+}
+
+export interface FileData {
   id: string;
   storage_path: string;
   original_filename: string;
   mime_type: string;
   file_size: number;
   checksum: string | null;
-  category: FileCategory;
+  category: string;
   project_id: string | null;
+  daily_log_id: string | null;
   uploaded_by: string;
   uploaded_at: string;
   version_number: number;
   parent_file_id: string | null;
   tags: string[];
   description: string | null;
+  thumbnail_path: string | null;
+  width: number | null;
+  height: number | null;
+  exif_data: any;
+  page_count: number | null;
+  folder_path: string | null;
+  is_favorite: boolean;
+  created_at: string;
+  updated_at: string;
   deleted_at: string | null;
-  uploader?: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-  };
   project?: {
     id: string;
     name: string;
     project_number: string;
   };
+  daily_log?: {
+    id: string;
+    date: string;
+  };
+  uploader: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
 }
 
-// File upload data interface
-export interface FileUploadData {
-  file: File;
-  projectId?: string;
-  category: FileCategory;
-  description?: string;
-  tags?: string[];
-}
-
-// File upload response
-export interface FileUploadResponse {
-  success: boolean;
-  data: File | File[];
-  message?: string;
-}
-
-// File list response
 export interface FileListResponse {
-  files: File[];
-  total: number;
+  files: FileData[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
-// File statistics response
-export interface FileStatsResponse {
-  totalFiles: number;
-  totalSize: number;
-  byCategory: Record<string, number>;
-}
-
-// File search parameters
-export interface FileSearchParams {
-  q?: string;
-  category?: FileCategory;
+export interface FileFilters {
   projectId?: string;
+  dailyLogId?: string;
+  category?: string;
+  mimeType?: string;
+  uploadedBy?: string;
+  tags?: string;
+  isFavorite?: boolean;
+  folderPath?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+}
+
+export interface FilePaginationOptions {
   page?: number;
   limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
-/**
- * File Service Class
- */
 class FileService {
   /**
-   * Upload a single file
+   * Upload file
    */
-  async uploadFile(
-    file: globalThis.File,
-    metadata: {
-      projectId?: string;
-      category: FileCategory;
-      description?: string;
-      tags?: string[];
-    }
-  ): Promise<ApiResponse<File>> {
+  async uploadFile(data: FileUploadRequest): Promise<FileData> {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', data.file);
+    formData.append('category', data.category);
     
-    if (metadata.projectId) {
-      formData.append('projectId', metadata.projectId);
-    }
-    formData.append('category', metadata.category);
-    
-    if (metadata.description) {
-      formData.append('description', metadata.description);
-    }
-    
-    if (metadata.tags && metadata.tags.length > 0) {
-      formData.append('tags', JSON.stringify(metadata.tags));
-    }
+    if (data.projectId) formData.append('projectId', data.projectId);
+    if (data.dailyLogId) formData.append('dailyLogId', data.dailyLogId);
+    if (data.description) formData.append('description', data.description);
+    if (data.tags) formData.append('tags', JSON.stringify(data.tags));
+    if (data.folderPath) formData.append('folderPath', data.folderPath);
 
-    return api.post('/files/upload', formData, {
+    const response: ApiResponse<FileData> = await api.post('/files/upload', formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-  }
-
-  /**
-   * Upload multiple files
-   */
-  async uploadMultipleFiles(
-    files: globalThis.File[],
-    metadata: {
-      projectId?: string;
-      category: FileCategory;
-      description?: string;
-      tags?: string[];
-    }
-  ): Promise<ApiResponse<File[]>> {
-    const formData = new FormData();
-    
-    files.forEach(file => {
-      formData.append('files', file);
+        'Content-Type': 'multipart/form-data'
+      }
     });
     
-    if (metadata.projectId) {
-      formData.append('projectId', metadata.projectId);
-    }
-    formData.append('category', metadata.category);
-    
-    if (metadata.description) {
-      formData.append('description', metadata.description);
-    }
-    
-    if (metadata.tags && metadata.tags.length > 0) {
-      formData.append('tags', JSON.stringify(metadata.tags));
-    }
-
-    return api.post('/files/upload-multiple', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    return response.data!;
   }
 
   /**
    * Get file by ID
    */
-  async getFile(fileId: string): Promise<ApiResponse<File>> {
-    return api.get(`/files/${fileId}`);
+  async getFileById(id: string): Promise<FileData> {
+    const response: ApiResponse<FileData> = await api.get(`/files/${id}`);
+    return response.data!;
   }
 
   /**
-   * Get files by project
+   * List files with filtering and pagination
    */
-  async getProjectFiles(
-    projectId: string,
-    params?: {
-      category?: FileCategory;
-      page?: number;
-      limit?: number;
-    }
-  ): Promise<ApiResponse<FileListResponse>> {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.category) {
-      queryParams.append('category', params.category);
-    }
-    if (params?.page) {
-      queryParams.append('page', params.page.toString());
-    }
-    if (params?.limit) {
-      queryParams.append('limit', params.limit.toString());
-    }
+  async listFiles(
+    filters: FileFilters = {},
+    pagination: FilePaginationOptions = {}
+  ): Promise<FileListResponse> {
+    const params = {
+      ...filters,
+      ...pagination
+    };
 
-    const queryString = queryParams.toString();
-    const url = `/files/project/${projectId}${queryString ? `?${queryString}` : ''}`;
-    
-    return api.get(url);
+    const response: ApiResponse<FileListResponse> = await api.get('/files', { params });
+    return response.data!;
   }
 
   /**
-   * Download file
+   * Update file metadata
    */
-  async downloadFile(fileId: string): Promise<Blob> {
-    const response = await api.get(`/files/${fileId}/download`, {
-      responseType: 'blob',
-    });
-    return response as unknown as Blob;
-  }
-
-  /**
-   * Get file preview/thumbnail
-   */
-  async getFilePreview(fileId: string, type: 'preview' | 'thumbnail' = 'preview'): Promise<Blob> {
-    const response = await api.get(`/files/${fileId}/preview?type=${type}`, {
-      responseType: 'blob',
-    });
-    return response as unknown as Blob;
+  async updateFile(
+    id: string,
+    data: {
+      description?: string;
+      tags?: string[];
+      folderPath?: string;
+      isFavorite?: boolean;
+    }
+  ): Promise<FileData> {
+    const response: ApiResponse<FileData> = await api.put(`/files/${id}`, data);
+    return response.data!;
   }
 
   /**
    * Delete file
    */
-  async deleteFile(fileId: string): Promise<ApiResponse<null>> {
-    return api.delete(`/files/${fileId}`);
+  async deleteFile(id: string): Promise<void> {
+    await api.delete(`/files/${id}`);
   }
 
   /**
-   * Get file statistics
+   * Toggle favorite status
    */
-  async getFileStats(projectId?: string): Promise<ApiResponse<FileStatsResponse>> {
-    const params = projectId ? { projectId } : {};
-    return api.get('/files/stats', { params });
+  async toggleFavorite(id: string): Promise<FileData> {
+    const response: ApiResponse<FileData> = await api.patch(`/files/${id}/favorite`);
+    return response.data!;
   }
 
   /**
-   * Search files
+   * Get download URL for file
    */
-  async searchFiles(params: FileSearchParams): Promise<ApiResponse<FileListResponse>> {
-    return api.get('/files/search', { params });
+  getDownloadUrl(id: string): string {
+    return `${api.defaults.baseURL}/files/${id}/download`;
   }
 
   /**
-   * Format file size for display
+   * Get view URL for file (inline)
+   */
+  getViewUrl(id: string): string {
+    return `${api.defaults.baseURL}/files/${id}/view`;
+  }
+
+  /**
+   * Get thumbnail URL for file
+   */
+  getThumbnailUrl(id: string): string {
+    return `${api.defaults.baseURL}/files/${id}/thumbnail`;
+  }
+
+  /**
+   * Format file size
    */
   formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
-    
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   }
 
   /**
-   * Get file icon based on MIME type
+   * Get file category display name
    */
-  getFileIcon(mimeType: string): string {
-    if (mimeType.startsWith('image/')) {
-      return 'image';
-    } else if (mimeType.includes('pdf')) {
-      return 'picture_as_pdf';
-    } else if (mimeType.includes('word') || mimeType.includes('document')) {
-      return 'description';
-    } else if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) {
-      return 'table_chart';
-    } else if (mimeType.includes('zip') || mimeType.includes('compressed')) {
-      return 'folder_zip';
-    } else {
-      return 'insert_drive_file';
-    }
-  }
-
-  /**
-   * Validate file before upload
-   */
-  validateFile(file: globalThis.File): { isValid: boolean; error?: string } {
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    const allowedTypes = [
-      'image/jpeg',
-      'image/png',
-      'image/webp',
-      'image/gif',
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'text/plain',
-      'application/zip',
-      'application/x-zip-compressed'
-    ];
-
-    if (file.size > maxSize) {
-      return {
-        isValid: false,
-        error: `File size exceeds maximum allowed size of ${this.formatFileSize(maxSize)}`
-      };
-    }
-
-    if (!allowedTypes.includes(file.type)) {
-      return {
-        isValid: false,
-        error: `File type ${file.type} is not allowed`
-      };
-    }
-
-    return { isValid: true };
-  }
-
-  /**
-   * Create download URL for file
-   */
-  createDownloadUrl(fileId: string): string {
-    return `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1'}/files/${fileId}/download`;
-  }
-
-  /**
-   * Create preview URL for file
-   */
-  createPreviewUrl(fileId: string, type: 'preview' | 'thumbnail' = 'preview'): string {
-    return `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1'}/files/${fileId}/preview?type=${type}`;
+  getCategoryDisplayName(category: string): string {
+    const categoryNames: Record<string, string> = {
+      DOCUMENT: 'Document',
+      PHOTO: 'Photo',
+      PLAN: 'Plan/Drawing',
+      SPEC: 'Specification',
+      PERMIT: 'Permit',
+      CONTRACT: 'Contract',
+      INVOICE: 'Invoice',
+      RECEIPT: 'Receipt',
+      REPORT: 'Report',
+      OTHER: 'Other'
+    };
+    return categoryNames[category] || category;
   }
 }
 
-// Export singleton instance
-export const fileService = new FileService();
-
-// Export default
+const fileService = new FileService();
 export default fileService;

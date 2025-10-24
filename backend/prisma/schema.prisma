@@ -236,25 +236,47 @@ model File {
   checksum          String?
   category          FileCategory
   project_id        String?      @db.Uuid
+  daily_log_id      String?      @db.Uuid
   uploaded_by       String       @db.Uuid
   uploaded_at       DateTime     @default(now()) @db.Timestamptz(6)
   version_number    Int          @default(1)
   parent_file_id    String?      @db.Uuid
   tags              String[]
   description       String?
+  
+  // Photo-specific fields
+  thumbnail_path    String?
+  width             Int?
+  height            Int?
+  exif_data         Json?
+  
+  // Document-specific fields
+  page_count        Int?
+  
+  // Organization fields
+  folder_path       String?
+  is_favorite       Boolean      @default(false)
+  
+  // Metadata
+  created_at        DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime     @updatedAt @db.Timestamptz(6)
   deleted_at        DateTime?    @db.Timestamptz(6)
 
   // Relations
-  project     Project? @relation(fields: [project_id], references: [id])
-  uploader    User     @relation(fields: [uploaded_by], references: [id])
-  parent_file File?    @relation("FileVersions", fields: [parent_file_id], references: [id])
-  child_files File[]   @relation("FileVersions")
+  project     Project?  @relation(fields: [project_id], references: [id])
+  daily_log   DailyLog? @relation(fields: [daily_log_id], references: [id])
+  uploader    User      @relation(fields: [uploaded_by], references: [id])
+  parent_file File?     @relation("FileVersions", fields: [parent_file_id], references: [id])
+  child_files File[]    @relation("FileVersions")
 
   @@index([project_id])
+  @@index([daily_log_id])
   @@index([uploaded_by])
   @@index([category])
   @@index([uploaded_at])
   @@index([deleted_at])
+  @@index([is_favorite])
+  @@index([folder_path])
   @@map("files")
 }
 
@@ -266,6 +288,8 @@ enum FileCategory {
   PERMIT
   CONTRACT
   INVOICE
+  RECEIPT
+  REPORT
   OTHER
 }
 
@@ -289,6 +313,7 @@ model DailyLog {
   // Relations
   project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
   creator User    @relation(fields: [created_by], references: [id])
+  files   File[]
 
   @@index([project_id])
   @@index([date])

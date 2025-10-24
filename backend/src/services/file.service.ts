@@ -1,312 +1,229 @@
 /**
  * File Service
  * 
- * Handles file upload, storage, and management operations.
- * Implements secure file handling with validation, virus scanning, and storage abstraction.
+ * Business logic for file management including upload, download, organization,
+ * and metadata management for photos and documents.
  */
 
-import { PrismaClient, File, FileCategory } from '@prisma/client';
-import { promises as fs } from 'fs';
-import path from 'path';
-import crypto from 'crypto';
-import sharp from 'sharp';
+import prisma from '../config/database';
+import { File, FileCategory, Prisma } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { ApiError } from '../utils/response';
+import {
+  getStorageService,
+  calculateChecksum,
+  validateFileSize,
+  validateFileType,
+  getAllowedMimeTypes,
+  getThumbnailPath,
+  type FileMetadata
+} from '../utils/storage.util';
+import {
+  processImage,
+  isImage,
+  type ImageProcessResult
+} from '../utils/image-processing.util';
 
-const prisma = new PrismaClient();
-
-// File upload configuration
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const ALLOWED_DOCUMENT_TYPES = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain',
-  'application/zip',
-  'application/x-zip-compressed'
-];
-
-// Storage configuration
-const STORAGE_BASE_PATH = process.env.STORAGE_PATH || './storage';
-const THUMBNAIL_SIZE = 200;
-const PREVIEW_SIZE = 800;
-
-export interface FileUploadData {
-  originalname: string;
-  mimetype: string;
-  size: number;
+/**
+ * File upload data
+ */
+export interface UploadFileData {
   buffer: Buffer;
-}
-
-export interface FileMetadata {
-  projectId?: string;
+  originalFilename: string;
+  mimeType: string;
   category: FileCategory;
+  projectId?: string;
+  dailyLogId?: string;
   description?: string;
   tags?: string[];
-  originalname?: string;
-  mimetype?: string;
-}
-
-export interface FileStorageResult {
-  filePath: string;
-  thumbnailPath?: string;
-  previewPath?: string;
-  checksum: string;
+  folderPath?: string;
 }
 
 /**
- * File Storage Service Interface
- * Abstracted for easy cloud migration
+ * File with relations
  */
-export interface IStorageService {
-  upload(file: Buffer, metadata: FileMetadata): Promise<FileStorageResult>;
-  download(filePath: string): Promise<Buffer>;
-  delete(filePath: string): Promise<void>;
-  getUrl(filePath: string): string;
+export type FileWithRelations = File & {
+  project?: {
+    id: string;
+    name: string;
+    project_number: string;
+  };
+  daily_log?: {
+    id: string;
+    date: Date;
+  };
+  uploader: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
+};
+
+/**
+ * File filters
+ */
+export interface FileFilters {
+  projectId?: string;
+  dailyLogId?: string;
+  category?: FileCategory;
+  mimeType?: string;
+  uploadedBy?: string;
+  tags?: string[];
+  isFavorite?: boolean;
+  folderPath?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+  search?: string;
 }
 
 /**
- * Local Storage Service Implementation
+ * Pagination options
  */
-class LocalStorageService implements IStorageService {
-  private basePath: string;
-
-  constructor(basePath: string) {
-    this.basePath = basePath;
-  }
-
-  async upload(file: Buffer, metadata: FileMetadata): Promise<FileStorageResult> {
-    const fileId = crypto.randomUUID();
-    const extension = this.getFileExtension(metadata.originalname || '');
-    const fileName = `${fileId}${extension}`;
-    
-    // Create directory structure
-    const dirPath = this.getDirectoryPath(metadata);
-    await this.ensureDirectoryExists(dirPath);
-    
-    const filePath = path.join(dirPath, fileName);
-    const checksum = crypto.createHash('sha256').update(file).digest('hex');
-    
-    // Write file
-    await fs.writeFile(filePath, file);
-    
-    const result: FileStorageResult = {
-      filePath: path.relative(this.basePath, filePath),
-      checksum
-    };
-    
-    // Generate thumbnails and previews for images
-    if (this.isImage(metadata.mimetype || '')) {
-      const thumbnailPath = await this.generateThumbnail(file, dirPath, fileId);
-      const previewPath = await this.generatePreview(file, dirPath, fileId);
-      
-      if (thumbnailPath) result.thumbnailPath = path.relative(this.basePath, thumbnailPath);
-      if (previewPath) result.previewPath = path.relative(this.basePath, previewPath);
-    }
-    
-    return result;
-  }
-
-  async download(filePath: string): Promise<Buffer> {
-    const fullPath = path.join(this.basePath, filePath);
-    return await fs.readFile(fullPath);
-  }
-
-  async delete(filePath: string): Promise<void> {
-    const fullPath = path.join(this.basePath, filePath);
-    try {
-      await fs.unlink(fullPath);
-    } catch (error) {
-      logger.warn('File not found for deletion', { filePath, error });
-    }
-  }
-
-  getUrl(filePath: string): string {
-    return `/api/v1/files/download/${filePath}`;
-  }
-
-  private getFileExtension(filename: string): string {
-    return path.extname(filename || '').toLowerCase();
-  }
-
-  private getDirectoryPath(metadata: FileMetadata): string {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    
-    if (metadata.projectId) {
-      return path.join(this.basePath, 'projects', metadata.projectId, metadata.category.toLowerCase(), `${year}-${month}-${day}`);
-    }
-    
-    return path.join(this.basePath, 'general', metadata.category.toLowerCase(), `${year}-${month}-${day}`);
-  }
-
-  private async ensureDirectoryExists(dirPath: string): Promise<void> {
-    try {
-      await fs.mkdir(dirPath, { recursive: true });
-    } catch (error) {
-      logger.error('Failed to create directory', { dirPath, error });
-      throw new ApiError('Failed to create storage directory', 500);
-    }
-  }
-
-  private isImage(mimetype: string): boolean {
-    return ALLOWED_IMAGE_TYPES.includes(mimetype || '');
-  }
-
-  private async generateThumbnail(file: Buffer, dirPath: string, fileId: string): Promise<string | null> {
-    try {
-      const thumbnailPath = path.join(dirPath, `${fileId}_thumb.jpg`);
-      await sharp(file)
-        .resize(THUMBNAIL_SIZE, THUMBNAIL_SIZE, { fit: 'cover' })
-        .jpeg({ quality: 80 })
-        .toFile(thumbnailPath);
-      return thumbnailPath;
-    } catch (error) {
-      logger.warn('Failed to generate thumbnail', { fileId, error });
-      return null;
-    }
-  }
-
-  private async generatePreview(file: Buffer, dirPath: string, fileId: string): Promise<string | null> {
-    try {
-      const previewPath = path.join(dirPath, `${fileId}_preview.jpg`);
-      await sharp(file)
-        .resize(PREVIEW_SIZE, PREVIEW_SIZE, { fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 85 })
-        .toFile(previewPath);
-      return previewPath;
-    } catch (error) {
-      logger.warn('Failed to generate preview', { fileId, error });
-      return null;
-    }
-  }
-}
-
-// Initialize storage service
-const storageService = new LocalStorageService(STORAGE_BASE_PATH);
-
-/**
- * Validate file upload
- */
-export function validateFileUpload(file: FileUploadData): void {
-  // Check file size
-  if (file.size > MAX_FILE_SIZE) {
-    throw new ApiError(`File size exceeds maximum allowed size of ${MAX_FILE_SIZE / (1024 * 1024)}MB`, 400);
-  }
-
-  // Check file type
-  const allowedTypes = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_DOCUMENT_TYPES];
-  if (!allowedTypes.includes(file.mimetype)) {
-    throw new ApiError(`File type ${file.mimetype} is not allowed`, 400);
-  }
-
-  // Check filename
-  if (!file.originalname || file.originalname.length === 0) {
-    throw new ApiError('Filename is required', 400);
-  }
-
-  // Check for suspicious file extensions
-  const suspiciousExtensions = ['.exe', '.bat', '.cmd', '.scr', '.pif', '.com'];
-  const extension = path.extname(file.originalname).toLowerCase();
-  if (suspiciousExtensions.includes(extension)) {
-    throw new ApiError('File type is not allowed for security reasons', 400);
-  }
+export interface FilePaginationOptions {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 /**
- * Determine file category from MIME type
+ * File list response
  */
-export function getFileCategory(mimetype: string): FileCategory {
-  if (ALLOWED_IMAGE_TYPES.includes(mimetype)) {
-    return FileCategory.PHOTO;
-  }
-  
-  if (mimetype === 'application/pdf') {
-    return FileCategory.DOCUMENT;
-  }
-  
-  if (mimetype.includes('word') || mimetype.includes('excel') || mimetype.includes('powerpoint')) {
-    return FileCategory.DOCUMENT;
-  }
-  
-  if (mimetype.includes('zip') || mimetype.includes('compressed')) {
-    return FileCategory.DOCUMENT;
-  }
-  
-  return FileCategory.OTHER;
+export interface FileListResponse {
+  files: FileWithRelations[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 /**
- * Upload file to storage and database
+ * File statistics
  */
-export async function uploadFile(
-  file: FileUploadData,
-  metadata: FileMetadata,
+export interface FileStatistics {
+  totalFiles: number;
+  totalSize: number;
+  filesByCategory: Record<string, number>;
+  filesByProject: Array<{ projectId: string; projectName: string; count: number }>;
+  recentUploads: number;
+}
+
+/**
+ * Upload file with processing
+ */
+export const uploadFile = async (
+  data: UploadFileData,
   uploadedBy: string
-): Promise<File> {
+): Promise<FileWithRelations> => {
   try {
-    // Validate file
-    validateFileUpload(file);
-    
-    // Determine category if not provided
-    const category = metadata.category || getFileCategory(file.mimetype);
-    
-    // Upload to storage
-    const storageResult = await storageService.upload(file.buffer, {
-      ...metadata,
-      category,
-      originalname: file.originalname,
-      mimetype: file.mimetype
-    });
-    
-    // Save to database
-    const fileRecord = await prisma.file.create({
-      data: {
-        storage_path: storageResult.filePath,
-        original_filename: file.originalname,
-        mime_type: file.mimetype,
-        file_size: file.size,
-        checksum: storageResult.checksum,
-        category,
-        project_id: metadata.projectId,
-        uploaded_by: uploadedBy,
-        description: metadata.description,
-        tags: metadata.tags || [],
-        version_number: 1
+    const { buffer, originalFilename, mimeType, category } = data;
+
+    // Validate file size
+    if (!validateFileSize(buffer.length)) {
+      throw new ApiError('File size exceeds maximum allowed size', 400);
+    }
+
+    // Validate file type
+    const allowedTypes = getAllowedMimeTypes(category);
+    if (!validateFileType(mimeType, allowedTypes)) {
+      throw new ApiError(
+        `File type ${mimeType} is not allowed for category ${category}`,
+        400
+      );
+    }
+
+    // Calculate checksum
+    const checksum = calculateChecksum(buffer);
+
+    // Check for duplicate files (same checksum)
+    const existingFile = await prisma.file.findFirst({
+      where: {
+        checksum,
+        deleted_at: null,
+        project_id: data.projectId || null
       }
     });
-    
-    logger.info('File uploaded successfully', {
-      fileId: fileRecord.id,
-      filename: file.originalname,
-      size: file.size,
-      category,
-      uploadedBy
-    });
-    
-    return fileRecord;
-  } catch (error) {
-    logger.error('File upload failed', { error, filename: file.originalname });
-    throw error;
-  }
-}
 
-/**
- * Get file by ID
- */
-export async function getFileById(fileId: string): Promise<File | null> {
-  try {
-    const file = await prisma.file.findFirst({
-      where: {
-        id: fileId,
-        deleted_at: null
+    if (existingFile) {
+      logger.warn('Duplicate file detected', { checksum, existingFileId: existingFile.id });
+      throw new ApiError('This file already exists in the system', 409);
+    }
+
+    // Storage metadata
+    const storageMetadata: FileMetadata = {
+      originalFilename,
+      mimeType,
+      category,
+      projectId: data.projectId,
+      dailyLogId: data.dailyLogId,
+      date: new Date()
+    };
+
+    // Upload to storage
+    const storageService = getStorageService();
+    const storagePath = await storageService.upload(buffer, storageMetadata);
+
+    // Process image if it's a photo
+    let imageData: ImageProcessResult | null = null;
+    let thumbnailPath: string | undefined;
+
+    if (isImage(mimeType) && category === FileCategory.PHOTO) {
+      try {
+        imageData = await processImage(buffer);
+        
+        // Save thumbnail
+        if (imageData.thumbnail) {
+          thumbnailPath = getThumbnailPath(storagePath);
+          await storageService.upload(imageData.thumbnail, {
+            ...storageMetadata,
+            originalFilename: `thumb_${originalFilename}`
+          });
+        }
+      } catch (imageError) {
+        logger.warn('Image processing failed, continuing without thumbnail', { 
+          error: imageError,
+          filename: originalFilename 
+        });
+      }
+    }
+
+    // Create file record
+    const file = await prisma.file.create({
+      data: {
+        storage_path: storagePath,
+        original_filename: originalFilename,
+        mime_type: mimeType,
+        file_size: buffer.length,
+        checksum,
+        category,
+        project_id: data.projectId,
+        daily_log_id: data.dailyLogId,
+        uploaded_by: uploadedBy,
+        description: data.description,
+        tags: data.tags || [],
+        folder_path: data.folderPath,
+        thumbnail_path: thumbnailPath,
+        width: imageData?.dimensions.width,
+        height: imageData?.dimensions.height,
+        exif_data: imageData?.exifData as any
       },
       include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+            project_number: true
+          }
+        },
+        daily_log: {
+          select: {
+            id: true,
+            date: true
+          }
+        },
         uploader: {
           select: {
             id: true,
@@ -314,92 +231,294 @@ export async function getFileById(fileId: string): Promise<File | null> {
             last_name: true,
             email: true
           }
-        },
+        }
+      }
+    });
+
+    logger.info('File uploaded successfully', {
+      fileId: file.id,
+      filename: originalFilename,
+      size: buffer.length,
+      category,
+      projectId: data.projectId,
+      uploadedBy
+    });
+
+    return file as FileWithRelations;
+  } catch (error) {
+    logger.error('Failed to upload file', { error, originalFilename: data.originalFilename });
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError('File upload failed', 500);
+  }
+};
+
+/**
+ * Get file by ID
+ */
+export const getFileById = async (fileId: string): Promise<FileWithRelations | null> => {
+  try {
+    const file = await prisma.file.findFirst({
+      where: {
+        id: fileId,
+        deleted_at: null
+      },
+      include: {
         project: {
           select: {
             id: true,
             name: true,
             project_number: true
           }
+        },
+        daily_log: {
+          select: {
+            id: true,
+            date: true
+          }
+        },
+        uploader: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            email: true
+          }
         }
       }
     });
-    
-    return file;
+
+    return file as FileWithRelations | null;
   } catch (error) {
-    logger.error('Failed to get file by ID', { fileId, error });
+    logger.error('Failed to get file', { error, fileId });
     throw new ApiError('Failed to retrieve file', 500);
   }
-}
+};
 
 /**
- * Get files by project ID
+ * List files with filtering and pagination
  */
-export async function getFilesByProject(
-  projectId: string,
-  category?: FileCategory,
-  page: number = 1,
-  limit: number = 20
-): Promise<{ files: File[]; total: number }> {
+export const listFiles = async (
+  filters: FileFilters = {},
+  pagination: FilePaginationOptions = {}
+): Promise<FileListResponse> => {
   try {
-    const where: any = {
-      project_id: projectId,
+    const {
+      projectId,
+      dailyLogId,
+      category,
+      mimeType,
+      uploadedBy,
+      tags,
+      isFavorite,
+      folderPath,
+      dateFrom,
+      dateTo,
+      search
+    } = filters;
+
+    const { page = 1, limit = 20, sortBy = 'uploaded_at', sortOrder = 'desc' } = pagination;
+    const actualPage = Math.max(1, page);
+    const skip = (actualPage - 1) * limit;
+
+    // Build where clause
+    const where: Prisma.FileWhereInput = {
       deleted_at: null
     };
-    
-    if (category) {
-      where.category = category;
+
+    if (projectId) where.project_id = projectId;
+    if (dailyLogId) where.daily_log_id = dailyLogId;
+    if (category) where.category = category;
+    if (mimeType) where.mime_type = { contains: mimeType };
+    if (uploadedBy) where.uploaded_by = uploadedBy;
+    if (isFavorite !== undefined) where.is_favorite = isFavorite;
+    if (folderPath) where.folder_path = folderPath;
+
+    if (tags && tags.length > 0) {
+      where.tags = {
+        hasEvery: tags
+      };
     }
-    
-    const [files, total] = await Promise.all([
-      prisma.file.findMany({
-        where,
-        include: {
-          uploader: {
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true
-            }
+
+    if (dateFrom || dateTo) {
+      where.uploaded_at = {};
+      if (dateFrom) where.uploaded_at.gte = dateFrom;
+      if (dateTo) where.uploaded_at.lte = dateTo;
+    }
+
+    if (search) {
+      where.OR = [
+        { original_filename: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { tags: { hasSome: [search] } }
+      ];
+    }
+
+    // Get total count
+    const total = await prisma.file.count({ where });
+
+    // Get files
+    const files = await prisma.file.findMany({
+      where,
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+            project_number: true
           }
         },
-        orderBy: { uploaded_at: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit
-      }),
-      prisma.file.count({ where })
-    ]);
-    
-    return { files, total };
+        daily_log: {
+          select: {
+            id: true,
+            date: true
+          }
+        },
+        uploader: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            email: true
+          }
+        }
+      },
+      skip,
+      take: limit,
+      orderBy: { [sortBy]: sortOrder }
+    });
+
+    const totalPages = Math.ceil(total / limit);
+
+    logger.info('Files retrieved', { count: files.length, total, page: actualPage, limit });
+
+    return {
+      files: files as FileWithRelations[],
+      pagination: {
+        page: actualPage,
+        limit,
+        total,
+        totalPages
+      }
+    };
   } catch (error) {
-    logger.error('Failed to get files by project', { projectId, error });
-    throw new ApiError('Failed to retrieve project files', 500);
+    logger.error('Failed to list files', { error, filters });
+    throw new ApiError('Failed to retrieve files', 500);
   }
-}
+};
 
 /**
- * Download file
+ * Update file metadata
  */
-export async function downloadFile(fileId: string): Promise<{ file: File; buffer: Buffer }> {
-  try {
-    const file = await getFileById(fileId);
-    if (!file) {
-      throw new ApiError('File not found', 404);
-    }
-    
-    const buffer = await storageService.download(file.storage_path);
-    
-    return { file, buffer };
-  } catch (error) {
-    logger.error('Failed to download file', { fileId, error });
-    throw error;
+export const updateFile = async (
+  fileId: string,
+  data: {
+    description?: string;
+    tags?: string[];
+    folderPath?: string;
+    isFavorite?: boolean;
   }
-}
+): Promise<FileWithRelations> => {
+  try {
+    const file = await prisma.file.update({
+      where: { id: fileId },
+      data,
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+            project_number: true
+          }
+        },
+        daily_log: {
+          select: {
+            id: true,
+            date: true
+          }
+        },
+        uploader: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    logger.info('File updated', { fileId, data });
+    return file as FileWithRelations;
+  } catch (error) {
+    logger.error('Failed to update file', { error, fileId });
+    throw new ApiError('Failed to update file', 500);
+  }
+};
 
 /**
  * Delete file (soft delete)
  */
-export async function deleteFile(fileId: string, deletedBy: string): Promise<void> {
+export const deleteFile = async (fileId: string): Promise<void> => {
+  try {
+    await prisma.file.update({
+      where: { id: fileId },
+      data: { deleted_at: new Date() }
+    });
+
+    logger.info('File soft deleted', { fileId });
+  } catch (error) {
+    logger.error('Failed to delete file', { error, fileId });
+    throw new ApiError('Failed to delete file', 500);
+  }
+};
+
+/**
+ * Permanently delete file
+ */
+export const permanentlyDeleteFile = async (fileId: string): Promise<void> => {
+  try {
+    const file = await prisma.file.findUnique({
+      where: { id: fileId }
+    });
+
+    if (!file) {
+      throw new ApiError('File not found', 404);
+    }
+
+    // Delete from storage
+    const storageService = getStorageService();
+    await storageService.delete(file.storage_path);
+
+    // Delete thumbnail if exists
+    if (file.thumbnail_path) {
+      try {
+        await storageService.delete(file.thumbnail_path);
+      } catch (thumbError) {
+        logger.warn('Failed to delete thumbnail', { thumbError, fileId });
+      }
+    }
+
+    // Delete from database
+    await prisma.file.delete({
+      where: { id: fileId }
+    });
+
+    logger.info('File permanently deleted', { fileId });
+  } catch (error) {
+    logger.error('Failed to permanently delete file', { error, fileId });
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError('Failed to permanently delete file', 500);
+  }
+};
+
+/**
+ * Download file
+ */
+export const downloadFile = async (fileId: string): Promise<{ buffer: Buffer; file: File }> => {
   try {
     const file = await prisma.file.findFirst({
       where: {
@@ -407,62 +526,102 @@ export async function deleteFile(fileId: string, deletedBy: string): Promise<voi
         deleted_at: null
       }
     });
-    
+
     if (!file) {
       throw new ApiError('File not found', 404);
     }
-    
-    // Soft delete
-    await prisma.file.update({
-      where: { id: fileId },
-      data: {
-        deleted_at: new Date()
-      }
-    });
-    
-    logger.info('File soft deleted', { fileId, deletedBy });
+
+    const storageService = getStorageService();
+    const buffer = await storageService.download(file.storage_path);
+
+    logger.info('File downloaded', { fileId, filename: file.original_filename });
+    return { buffer, file };
   } catch (error) {
-    logger.error('Failed to delete file', { fileId, error });
-    throw error;
+    logger.error('Failed to download file', { error, fileId });
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError('Failed to download file', 500);
   }
-}
+};
 
 /**
  * Get file statistics
  */
-export async function getFileStats(projectId?: string): Promise<{
-  totalFiles: number;
-  totalSize: number;
-  byCategory: Record<string, number>;
-}> {
+export const getFileStatistics = async (filters: FileFilters = {}): Promise<FileStatistics> => {
   try {
-    const where: any = { deleted_at: null };
-    if (projectId) {
-      where.project_id = projectId;
-    }
-    
-    const files = await prisma.file.findMany({
-      where,
-      select: {
-        file_size: true,
-        category: true
-      }
-    });
-    
-    const stats = {
-      totalFiles: files.length,
-      totalSize: files.reduce((sum, file) => sum + file.file_size, 0),
-      byCategory: files.reduce((acc, file) => {
-        acc[file.category] = (acc[file.category] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>)
+    const where: Prisma.FileWhereInput = {
+      deleted_at: null
     };
-    
-    return stats;
+
+    if (filters.projectId) where.project_id = filters.projectId;
+    if (filters.uploadedBy) where.uploaded_by = filters.uploadedBy;
+
+    const [totalFiles, totalSizeResult, filesByCategory, filesByProject, recentUploads] = await Promise.all([
+      prisma.file.count({ where }),
+      prisma.file.aggregate({
+        where,
+        _sum: { file_size: true }
+      }),
+      prisma.file.groupBy({
+        by: ['category'],
+        where,
+        _count: true
+      }),
+      prisma.file.groupBy({
+        by: ['project_id'],
+        where: { ...where, project_id: { not: null } },
+        _count: true
+      }),
+      prisma.file.count({
+        where: {
+          ...where,
+          uploaded_at: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+        }
+      })
+    ]);
+
+    const categoryStats = filesByCategory.reduce((acc: Record<string, number>, item: any) => {
+      acc[item.category] = item._count;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Get project names for project stats
+    const projectIds = filesByProject.map((p: any) => p.project_id).filter(Boolean) as string[];
+    const projects = await prisma.project.findMany({
+      where: { id: { in: projectIds } },
+      select: { id: true, name: true }
+    });
+
+    const projectStats = filesByProject.map((item: any) => {
+      const project = projects.find((p: any) => p.id === item.project_id);
+      return {
+        projectId: item.project_id!,
+        projectName: project?.name || 'Unknown',
+        count: item._count
+      };
+    });
+
+    return {
+      totalFiles,
+      totalSize: Number(totalSizeResult._sum.file_size || 0),
+      filesByCategory: categoryStats,
+      filesByProject: projectStats,
+      recentUploads
+    };
   } catch (error) {
-    logger.error('Failed to get file stats', { projectId, error });
+    logger.error('Failed to get file statistics', { error });
     throw new ApiError('Failed to retrieve file statistics', 500);
   }
-}
+};
 
-export { storageService };
+export default {
+  uploadFile,
+  getFileById,
+  listFiles,
+  updateFile,
+  deleteFile,
+  permanentlyDeleteFile,
+  downloadFile,
+  getFileStatistics
+};

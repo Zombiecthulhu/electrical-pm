@@ -24,7 +24,6 @@ import {
   DialogContent,
   DialogActions,
   Alert,
-  Grid,
   InputAdornment
 } from '@mui/material';
 import {
@@ -80,7 +79,7 @@ const QuoteList: React.FC<QuoteListProps> = ({
     clearError
   } = useQuoteStore();
 
-  const { clients, fetchClients } = useClientStore();
+  const { clients, loadClients } = useClientStore();
 
   const [searchTerm, setSearchTerm] = useState(filters.search || '');
   const [statusFilter, setStatusFilter] = useState<QuoteStatus | ''>(filters.status || '');
@@ -95,10 +94,10 @@ const QuoteList: React.FC<QuoteListProps> = ({
   // Load data on mount
   useEffect(() => {
     if (clients.length === 0) {
-      fetchClients();
+      loadClients();
     }
     fetchQuotes();
-  }, [clients.length, fetchClients, fetchQuotes]);
+  }, [clients.length, loadClients, fetchQuotes]);
 
   // Apply filters
   const applyFilters = () => {
@@ -298,8 +297,8 @@ const QuoteList: React.FC<QuoteListProps> = ({
               <FilterIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
               Filters
             </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={3}>
+            <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: 'repeat(6, 1fr)' }} gap={2}>
+              <Box sx={{ gridColumn: { xs: '1', md: 'span 2' } }}>
                 <TextField
                   fullWidth
                   label="Search"
@@ -314,8 +313,8 @@ const QuoteList: React.FC<QuoteListProps> = ({
                     )
                   }}
                 />
-              </Grid>
-              <Grid item xs={12} md={2}>
+              </Box>
+              <Box>
                 <FormControl fullWidth>
                   <InputLabel>Status</InputLabel>
                   <Select
@@ -331,8 +330,8 @@ const QuoteList: React.FC<QuoteListProps> = ({
                     ))}
                   </Select>
                 </FormControl>
-              </Grid>
-              <Grid item xs={12} md={2}>
+              </Box>
+              <Box>
                 <FormControl fullWidth>
                   <InputLabel>Client</InputLabel>
                   <Select
@@ -348,24 +347,32 @@ const QuoteList: React.FC<QuoteListProps> = ({
                     ))}
                   </Select>
                 </FormControl>
-              </Grid>
-              <Grid item xs={12} md={2}>
+              </Box>
+              <Box>
                 <DatePicker
                   label="From Date"
                   value={dateFrom}
                   onChange={(newValue) => setDateFrom(newValue)}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true
+                    }
+                  }}
                 />
-              </Grid>
-              <Grid item xs={12} md={2}>
+              </Box>
+              <Box>
                 <DatePicker
                   label="To Date"
                   value={dateTo}
                   onChange={(newValue) => setDateTo(newValue)}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true
+                    }
+                  }}
                 />
-              </Grid>
-              <Grid item xs={12} md={1}>
+              </Box>
+              <Box sx={{ gridColumn: { xs: '1', md: 'span 2' } }}>
                 <Box display="flex" gap={1} height="100%">
                   <Button
                     variant="contained"
@@ -384,8 +391,8 @@ const QuoteList: React.FC<QuoteListProps> = ({
                     Clear
                   </Button>
                 </Box>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
           </CardContent>
         </Card>
 

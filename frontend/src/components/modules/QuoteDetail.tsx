@@ -12,7 +12,6 @@ import {
   CardContent,
   Typography,
   Button,
-  Grid,
   Chip,
   Divider,
   Table,
@@ -154,7 +153,7 @@ const QuoteDetail: React.FC<QuoteDetailProps> = ({
           <Chip
             label={quoteService.getStatusDisplayText(quote.status)}
             color={quoteService.getStatusColor(quote.status)}
-            size="large"
+            size="medium"
           />
         </Box>
         <Box display="flex" gap={1}>
@@ -189,9 +188,9 @@ const QuoteDetail: React.FC<QuoteDetailProps> = ({
         </Box>
       </Box>
 
-      <Grid container spacing={3}>
+      <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: '1fr 1fr' }} gap={3}>
         {/* Client Information */}
-        <Grid item xs={12} md={6}>
+        <Box>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -214,10 +213,10 @@ const QuoteDetail: React.FC<QuoteDetailProps> = ({
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Quote Information */}
-        <Grid item xs={12} md={6}>
+        <Box>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -247,10 +246,11 @@ const QuoteDetail: React.FC<QuoteDetailProps> = ({
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
+      </Box>
 
-        {/* Line Items */}
-        <Grid item xs={12}>
+      {/* Line Items */}
+      <Box mt={3}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -328,11 +328,11 @@ const QuoteDetail: React.FC<QuoteDetailProps> = ({
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Notes */}
         {quote.notes && (
-          <Grid item xs={12}>
+          <Box mt={3}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -340,12 +340,11 @@ const QuoteDetail: React.FC<QuoteDetailProps> = ({
                 </Typography>
                 <Typography variant="body2" style={{ whiteSpace: 'pre-wrap' }}>
                   {quote.notes}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+              </Typography>
+            </CardContent>
+          </Card>
+        </Box>
         )}
-      </Grid>
 
       {/* Status Change Dialog */}
       <Dialog open={statusDialog} onClose={() => setStatusDialog(false)}>

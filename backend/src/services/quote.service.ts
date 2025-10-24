@@ -221,7 +221,7 @@ export async function createQuote(
         client_id: data.client_id,
         project_name: data.project_name,
         status: data.status || QuoteStatus.DRAFT,
-        line_items: data.line_items,
+        line_items: data.line_items as any,
         subtotal,
         tax,
         total,
@@ -263,7 +263,7 @@ export async function createQuote(
       createdBy
     });
     
-    return quote;
+    return quote as QuoteWithRelations;
   } catch (error) {
     logger.error('Failed to create quote', { error, data, createdBy });
     if (error instanceof ApiError) {
@@ -470,7 +470,7 @@ export async function updateQuote(
     }
     
     // Calculate totals if line items are updated
-    let updateData: Prisma.QuoteUpdateInput = {
+    let updateData: any = {
       ...data,
       updated_by: updatedBy
     };
@@ -480,6 +480,7 @@ export async function updateQuote(
       updateData.subtotal = data.subtotal || calculations.subtotal;
       updateData.tax = data.tax !== undefined ? data.tax : calculations.tax;
       updateData.total = data.total || calculations.total;
+      updateData.line_items = data.line_items as any;
     }
     
     const quote = await prisma.quote.update({
@@ -668,8 +669,8 @@ export async function getQuoteStats(
       })
     ]);
     
-    const total_value = total_value_result._sum.total || 0;
-    const accepted_value = accepted_value_result._sum.total || 0;
+    const total_value = Number(total_value_result._sum.total || 0);
+    const accepted_value = Number(accepted_value_result._sum.total || 0);
     const average_quote_value = total_quotes > 0 ? total_value / total_quotes : 0;
     
     return {
@@ -710,7 +711,7 @@ export async function duplicateQuote(
     const newQuote = await createQuote({
       client_id: originalQuote.client_id,
       project_name: newProjectName,
-      line_items: originalQuote.line_items as LineItem[],
+      line_items: originalQuote.line_items as unknown as LineItem[],
       subtotal: Number(originalQuote.subtotal),
       tax: originalQuote.tax ? Number(originalQuote.tax) : undefined,
       total: Number(originalQuote.total),

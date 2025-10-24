@@ -5,7 +5,7 @@
  * Provides type-safe methods for all quote-related API calls.
  */
 
-import { api, ApiResponse } from './api';
+import api, { ApiResponse } from './api';
 
 // Quote interfaces
 export interface LineItem {
@@ -125,7 +125,7 @@ class QuoteService {
    */
   async createQuote(data: CreateQuoteData): Promise<Quote> {
     const response: ApiResponse<Quote> = await api.post('/quotes', data);
-    return response.data;
+    return response.data!;
   }
 
   /**
@@ -133,7 +133,7 @@ class QuoteService {
    */
   async getQuoteById(id: string): Promise<Quote> {
     const response: ApiResponse<Quote> = await api.get(`/quotes/${id}`);
-    return response.data;
+    return response.data!;
   }
 
   /**
@@ -141,7 +141,7 @@ class QuoteService {
    */
   async getQuoteByNumber(quoteNumber: string): Promise<Quote> {
     const response: ApiResponse<Quote> = await api.get(`/quotes/number/${quoteNumber}`);
-    return response.data;
+    return response.data!;
   }
 
   /**
@@ -158,7 +158,7 @@ class QuoteService {
     };
 
     const response: ApiResponse<QuoteListResponse> = await api.get('/quotes', { params });
-    return response.data;
+    return response.data!;
   }
 
   /**
@@ -166,7 +166,7 @@ class QuoteService {
    */
   async updateQuote(id: string, data: UpdateQuoteData): Promise<Quote> {
     const response: ApiResponse<Quote> = await api.put(`/quotes/${id}`, data);
-    return response.data;
+    return response.data!;
   }
 
   /**
@@ -174,7 +174,7 @@ class QuoteService {
    */
   async updateQuoteStatus(id: string, status: QuoteStatus): Promise<Quote> {
     const response: ApiResponse<Quote> = await api.patch(`/quotes/${id}/status`, { status });
-    return response.data;
+    return response.data!;
   }
 
   /**
@@ -189,7 +189,7 @@ class QuoteService {
    */
   async getQuoteStats(filters: QuoteFilters = {}): Promise<QuoteStats> {
     const response: ApiResponse<QuoteStats> = await api.get('/quotes/stats', { params: filters });
-    return response.data;
+    return response.data!;
   }
 
   /**
@@ -199,7 +199,7 @@ class QuoteService {
     const response: ApiResponse<Quote> = await api.post(`/quotes/${id}/duplicate`, {
       project_name: projectName
     });
-    return response.data;
+    return response.data!;
   }
 
   /**

@@ -41,3 +41,6 @@ export * from './daily-log.service';
 // Quote Service
 export * from './quote.service';
 
+// File Service
+export * from './file.service';
+

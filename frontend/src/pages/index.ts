@@ -45,3 +45,6 @@ export { default as QuoteManagement } from './QuoteManagement';
 // Project pages
 export * from './Projects';
 
+// Document pages
+export * from './Documents';
+
