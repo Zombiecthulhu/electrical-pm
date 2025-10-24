@@ -538,6 +538,8 @@ This is an internal tool for an electrical construction business. Users include:
 - Ask clarifying questions if requirements are unclear
 - Reference the full PRD document for detailed specifications
 
+## Additional Rules
+
 ---
 
 When generating code, always follow these rules. If you're unsure about implementation details, ask before proceeding. The goal is to build a robust, secure, maintainable application that serves the business well for years to come.
