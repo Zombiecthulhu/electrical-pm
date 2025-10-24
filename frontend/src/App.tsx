@@ -4,14 +4,21 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { Box, Container, Typography, Button, Alert } from '@mui/material';
 import theme from './theme';
 import { api, ApiResponse } from './services';
-import { useAuth } from './store';
+import { useAuthStore } from './store';
 
 function App() {
   const [apiStatus, setApiStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [apiMessage, setApiMessage] = useState<string>('');
   
-  // Zustand auth store
-  const { user, isAuthenticated, isLoading, error, login, logout, checkAuth, clearError } = useAuth();
+  // Zustand auth store - use individual selectors to prevent re-renders
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const error = useAuthStore((state) => state.error);
+  const login = useAuthStore((state) => state.login);
+  const logout = useAuthStore((state) => state.logout);
+  const checkAuth = useAuthStore((state) => state.checkAuth);
+  const clearError = useAuthStore((state) => state.clearError);
 
   // Test API connection on component mount
   useEffect(() => {
@@ -53,7 +60,7 @@ function App() {
         password: 'Admin@123'
       });
       setApiStatus('success');
-      setApiMessage(`Login successful! Welcome ${user?.first_name} ${user?.last_name} (${user?.role})`);
+      setApiMessage('Login successful! Check authentication status above.');
     } catch (error: any) {
       setApiStatus('error');
       setApiMessage(`Login failed: ${error.message}`);
