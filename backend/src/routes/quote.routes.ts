@@ -6,7 +6,7 @@
  */
 
 import { Router } from 'express';
-import { authenticate, authorize } from '../middleware/auth.middleware';
+import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 import {
   createQuoteHandler,
   getQuoteByIdHandler,
@@ -31,7 +31,7 @@ router.use(authenticate);
  */
 router.post(
   '/',
-  authorize(['PROJECT_MANAGER', 'OFFICE_ADMIN', 'SUPER_ADMIN']),
+  authorizeRoles(['PROJECT_MANAGER', 'OFFICE_ADMIN', 'SUPER_ADMIN']),
   createQuoteHandler
 );
 
@@ -70,7 +70,7 @@ router.get('/:id', getQuoteByIdHandler);
  */
 router.put(
   '/:id',
-  authorize(['PROJECT_MANAGER', 'OFFICE_ADMIN', 'SUPER_ADMIN']),
+  authorizeRoles(['PROJECT_MANAGER', 'OFFICE_ADMIN', 'SUPER_ADMIN']),
   updateQuoteHandler
 );
 
@@ -81,7 +81,7 @@ router.put(
  */
 router.patch(
   '/:id/status',
-  authorize(['PROJECT_MANAGER', 'OFFICE_ADMIN', 'SUPER_ADMIN']),
+  authorizeRoles(['PROJECT_MANAGER', 'OFFICE_ADMIN', 'SUPER_ADMIN']),
   updateQuoteStatusHandler
 );
 
@@ -92,7 +92,7 @@ router.patch(
  */
 router.post(
   '/:id/duplicate',
-  authorize(['PROJECT_MANAGER', 'OFFICE_ADMIN', 'SUPER_ADMIN']),
+  authorizeRoles(['PROJECT_MANAGER', 'OFFICE_ADMIN', 'SUPER_ADMIN']),
   duplicateQuoteHandler
 );
 
@@ -103,7 +103,7 @@ router.post(
  */
 router.delete(
   '/:id',
-  authorize(['SUPER_ADMIN']),
+  authorizeRoles(['SUPER_ADMIN']),
   deleteQuoteHandler
 );
 
