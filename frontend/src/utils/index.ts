@@ -25,6 +25,11 @@
  * export * from './constants';
  */
 
+// Export logger utility
+export { logger } from './logger';
+
 // Utilities will be exported here as they are created
-export {};
+// export * from './formatters';
+// export * from './validators';
+// export * from './constants';
 

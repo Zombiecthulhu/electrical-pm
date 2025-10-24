@@ -25,6 +25,14 @@
  * export * from './projectService';
  */
 
+// Export API service
+export { default as api } from './api';
+export type { ApiResponse, ApiError } from './api';
+
+// Export auth service
+export { default as authService } from './auth.service';
+export * from './auth.service';
+
 // Services will be exported here as they are created
-export {};
+// export * from './projectService';
 
