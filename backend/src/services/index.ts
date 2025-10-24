@@ -17,6 +17,7 @@
  * export { fileStorageService } from './file-storage.service';
  */
 
-// Services will be exported here as they are created
-export {};
+// Authentication Service
+export * from './auth.service';
+export { default as authService } from './auth.service';
 
