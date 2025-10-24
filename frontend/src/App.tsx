@@ -3,11 +3,15 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box, Container, Typography, Button, Alert } from '@mui/material';
 import theme from './theme';
-import { api, ApiResponse, authService } from './services';
+import { api, ApiResponse } from './services';
+import { useAuth } from './store';
 
 function App() {
   const [apiStatus, setApiStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [apiMessage, setApiMessage] = useState<string>('');
+  
+  // Zustand auth store
+  const { user, isAuthenticated, isLoading, error, login, logout, checkAuth, clearError } = useAuth();
 
   // Test API connection on component mount
   useEffect(() => {
@@ -44,15 +48,29 @@ function App() {
     setApiMessage('Testing login...');
     
     try {
-      const response = await authService.login({
+      await login({
         email: 'admin@example.com',
         password: 'Admin@123'
       });
       setApiStatus('success');
-      setApiMessage(`Login successful! Welcome ${response.user.first_name} ${response.user.last_name} (${response.user.role})`);
+      setApiMessage(`Login successful! Welcome ${user?.first_name} ${user?.last_name} (${user?.role})`);
     } catch (error: any) {
       setApiStatus('error');
       setApiMessage(`Login failed: ${error.message}`);
+    }
+  };
+
+  const handleTestLogout = async () => {
+    setApiStatus('loading');
+    setApiMessage('Testing logout...');
+    
+    try {
+      await logout();
+      setApiStatus('success');
+      setApiMessage('Logout successful!');
+    } catch (error: any) {
+      setApiStatus('error');
+      setApiMessage(`Logout failed: ${error.message}`);
     }
   };
 
@@ -113,8 +131,28 @@ function App() {
             )}
           </Box>
 
+          {/* Authentication Status */}
+          <Box sx={{ mb: 3, maxWidth: 600 }}>
+            {isLoading && (
+              <Alert severity="info">Authentication in progress...</Alert>
+            )}
+            {isAuthenticated && user && (
+              <Alert severity="success">
+                Authenticated as: {user.first_name} {user.last_name} ({user.role})
+              </Alert>
+            )}
+            {!isAuthenticated && !isLoading && (
+              <Alert severity="warning">Not authenticated</Alert>
+            )}
+            {error && (
+              <Alert severity="error" onClose={clearError}>
+                Auth Error: {error}
+              </Alert>
+            )}
+          </Box>
+
           {/* Test Buttons */}
-          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, mt: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
             <Button
               variant="contained"
               onClick={handleTestApi}
@@ -125,9 +163,17 @@ function App() {
             <Button
               variant="outlined"
               onClick={handleTestLogin}
-              disabled={apiStatus === 'loading'}
+              disabled={apiStatus === 'loading' || isLoading}
             >
               Test Login
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={handleTestLogout}
+              disabled={apiStatus === 'loading' || isLoading || !isAuthenticated}
+              color="secondary"
+            >
+              Test Logout
             </Button>
           </Box>
         </Box>

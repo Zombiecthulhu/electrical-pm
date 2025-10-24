@@ -29,6 +29,6 @@
  * export { useUIStore } from './uiStore';
  */
 
-// Store will be exported here as it is created
-export {};
+// Store exports
+export { useAuthStore, useUser, useIsAuthenticated, useIsLoading, useAuthError, useAuthActions, useAuth } from './auth.store';
 
