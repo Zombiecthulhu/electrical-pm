@@ -84,7 +84,16 @@ api.interceptors.response.use(
         case 401:
           // Unauthorized - token expired or invalid
           logger.warn('Authentication required or token expired');
-          // Could dispatch logout action here
+          
+          // Auto-logout and redirect to login
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('user');
+          
+          // Only redirect if not already on login page
+          if (window.location.pathname !== '/login') {
+            logger.info('Redirecting to login page due to expired session');
+            window.location.href = '/login?session=expired';
+          }
           break;
         case 403:
           // Forbidden - insufficient permissions

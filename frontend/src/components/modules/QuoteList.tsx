@@ -24,7 +24,8 @@ import {
   DialogContent,
   DialogActions,
   Alert,
-  InputAdornment
+  InputAdornment,
+  CircularProgress
 } from '@mui/material';
 import {
   DataGrid,
@@ -54,6 +55,8 @@ import {
 } from '../../services/quote.service';
 import { useQuoteStore } from '../../store/quote.store';
 import { useClientStore } from '../../store/client.store';
+import { useMobileView } from '../../hooks';
+import { MobileListView, MobileListItem } from '../common';
 
 interface QuoteListProps {
   onViewQuote: (quote: Quote) => void;
@@ -66,6 +69,8 @@ const QuoteList: React.FC<QuoteListProps> = ({
   onEditQuote,
   onCreateQuote
 }) => {
+  const isMobileView = useMobileView();
+  
   const {
     quotes,
     loading,
@@ -165,6 +170,50 @@ const QuoteList: React.FC<QuoteListProps> = ({
       // Error is handled by the store
     }
   }, [duplicateQuote]);
+
+  // Convert quotes to mobile list items
+  const mobileListItems: MobileListItem[] = useMemo(() => 
+    quotes.map((quote) => ({
+      id: quote.id,
+      title: `Quote #${quote.quote_number}`,
+      subtitle: quote.project_name,
+      description: quote.client?.name || 'No client',
+      status: {
+        label: quoteService.getStatusDisplayText(quote.status),
+        color: quoteService.getStatusColor(quote.status) as any,
+      },
+      metadata: [
+        { label: 'Total', value: quoteService.formatCurrency(quote.total) },
+        { label: 'Valid Until', value: quote.valid_until ? new Date(quote.valid_until).toLocaleDateString() : 'N/A' },
+        { label: 'Created', value: new Date(quote.created_at).toLocaleDateString() },
+      ],
+      actions: [
+        {
+          label: 'View',
+          icon: <ViewIcon />,
+          onClick: () => onViewQuote(quote),
+        },
+        {
+          label: 'Edit',
+          icon: <EditIcon />,
+          onClick: () => onEditQuote(quote),
+        },
+        {
+          label: 'Duplicate',
+          icon: <DuplicateIcon />,
+          onClick: () => handleDuplicate(quote),
+        },
+        {
+          label: 'Delete',
+          icon: <DeleteIcon />,
+          onClick: () => setDeleteDialog({ open: true, quote }),
+          color: 'error' as const,
+        },
+      ],
+      onClick: () => onViewQuote(quote),
+    })),
+    [quotes, onViewQuote, onEditQuote, handleDuplicate]
+  );
 
   // Define columns
   // Memoize columns to prevent recreation on every render
@@ -280,12 +329,21 @@ const QuoteList: React.FC<QuoteListProps> = ({
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Box>
         {/* Header */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h5">Quotes</Typography>
+        <Box 
+          display="flex" 
+          justifyContent="space-between" 
+          alignItems={isMobileView ? 'flex-start' : 'center'}
+          flexDirection={isMobileView ? 'column' : 'row'}
+          gap={isMobileView ? 2 : 0}
+          mb={3}
+        >
+          <Typography variant={isMobileView ? 'h6' : 'h5'}>Quotes</Typography>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={onCreateQuote}
+            fullWidth={isMobileView}
+            sx={{ minHeight: 44 }}
           >
             Create Quote
           </Button>
@@ -404,34 +462,67 @@ const QuoteList: React.FC<QuoteListProps> = ({
           </Alert>
         )}
 
-        {/* Data Grid */}
-        <Card>
-          <CardContent sx={{ p: 0 }}>
-            <DataGrid
-              rows={quotes}
-              columns={columns}
-              loading={loading}
-              pageSizeOptions={[10, 20, 50]}
-              paginationModel={{
-                page: pagination.page - 1,
-                pageSize: pagination.limit
-              }}
-              onPaginationModelChange={handlePaginationModelChange}
-              rowCount={pagination.total}
-              paginationMode="server"
-              slots={{
-                toolbar: GridToolbar
-              }}
-              disableRowSelectionOnClick
-              sx={{
-                border: 'none',
-                '& .MuiDataGrid-cell': {
-                  borderBottom: '1px solid #f0f0f0'
-                }
-              }}
-            />
-          </CardContent>
-        </Card>
+        {/* Data Grid / Mobile List */}
+        {isMobileView ? (
+          <>
+            {loading && (
+              <Box display="flex" justifyContent="center" py={4}>
+                <CircularProgress />
+              </Box>
+            )}
+            {!loading && quotes.length === 0 && (
+              <Card>
+                <CardContent sx={{ p: 4, textAlign: 'center' }}>
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    No quotes found
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    {searchTerm || statusFilter || clientFilter ? 'Try adjusting your filters' : 'Create your first quote to get started'}
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={onCreateQuote}
+                    sx={{ minHeight: 44 }}
+                  >
+                    Create Quote
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+            {!loading && quotes.length > 0 && (
+              <MobileListView items={mobileListItems} />
+            )}
+          </>
+        ) : (
+          <Card>
+            <CardContent sx={{ p: 0 }}>
+              <DataGrid
+                rows={quotes}
+                columns={columns}
+                loading={loading}
+                pageSizeOptions={[10, 20, 50]}
+                paginationModel={{
+                  page: pagination.page - 1,
+                  pageSize: pagination.limit
+                }}
+                onPaginationModelChange={handlePaginationModelChange}
+                rowCount={pagination.total}
+                paginationMode="server"
+                slots={{
+                  toolbar: GridToolbar
+                }}
+                disableRowSelectionOnClick
+                sx={{
+                  border: 'none',
+                  '& .MuiDataGrid-cell': {
+                    borderBottom: '1px solid #f0f0f0'
+                  }
+                }}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Delete Confirmation Dialog */}
         <Dialog

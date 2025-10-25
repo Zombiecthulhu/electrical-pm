@@ -42,6 +42,8 @@ import {
 } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridRowParams, GridActionsCellItem } from '@mui/x-data-grid';
 import { clientService, Client, ClientFilters } from '../../services/client.service';
+import { useMobileView } from '../../hooks';
+import { MobileListView, MobileListItem } from '../common';
 
 export interface ClientListProps {
   onEdit?: (client: Client) => void;
@@ -60,6 +62,7 @@ export const ClientList: React.FC<ClientListProps> = ({
   className,
 }) => {
   const navigate = useNavigate();
+  const isMobile = useMobileView();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -214,6 +217,42 @@ export const ClientList: React.FC<ClientListProps> = ({
     return type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
   };
 
+  // Convert clients to mobile list items
+  const mobileListItems: MobileListItem[] = clients.map((client) => ({
+    id: client.id,
+    title: client.name,
+    subtitle: client.email || client.phone || 'No contact info',
+    avatar: getClientTypeIcon(client.type),
+    status: {
+      label: formatClientType(client.type),
+      color: getClientTypeColor(client.type) as any,
+    },
+    metadata: [
+      ...(client.email ? [{ label: 'Email', value: client.email }] : []),
+      ...(client.phone ? [{ label: 'Phone', value: client.phone }] : []),
+      { label: 'Created', value: new Date(client.created_at).toLocaleDateString() },
+    ],
+    actions: [
+      {
+        label: 'View',
+        icon: <MoreVertIcon />,
+        onClick: () => handleView(client),
+      },
+      {
+        label: 'Edit',
+        icon: <EditIcon />,
+        onClick: () => handleEdit(client),
+      },
+      {
+        label: 'Delete',
+        icon: <DeleteIcon />,
+        onClick: () => handleDeleteClick(client),
+        color: 'error' as const,
+      },
+    ],
+    onClick: () => handleView(client),
+  }));
+
   // DataGrid columns
   const columns: GridColDef[] = [
     {
@@ -323,21 +362,31 @@ export const ClientList: React.FC<ClientListProps> = ({
       </Box>
 
       {/* Search and Filter Bar */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+      <Paper sx={{ p: isMobile ? 1.5 : 2, mb: 3 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          gap: isMobile ? 1.5 : 2, 
+          alignItems: isMobile ? 'stretch' : 'center', 
+          flexDirection: isMobile ? 'column' : 'row', 
+          flexWrap: isMobile ? 'nowrap' : 'wrap'
+        }}>
           <TextField
             placeholder="Search clients..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
             size="small"
-            sx={{ minWidth: 200 }}
+            fullWidth={isMobile}
+            sx={{ 
+              minWidth: isMobile ? '100%' : 200,
+              '& .MuiInputBase-input': { fontSize: '16px' },
+            }}
             InputProps={{
               startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
             }}
           />
           
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+          <FormControl size="small" fullWidth={isMobile} sx={{ minWidth: isMobile ? '100%' : 150 }}>
             <InputLabel>Type</InputLabel>
             <Select
               value={typeFilter}
@@ -353,70 +402,111 @@ export const ClientList: React.FC<ClientListProps> = ({
             </Select>
           </FormControl>
 
-          <Button
-            variant="contained"
-            onClick={handleSearch}
-            startIcon={<SearchIcon />}
-            disabled={loading}
-          >
-            Search
-          </Button>
+          {!isMobile && (
+            <>
+              <Button
+                variant="contained"
+                onClick={handleSearch}
+                startIcon={<SearchIcon />}
+                disabled={loading}
+                sx={{ minHeight: 44 }}
+              >
+                Search
+              </Button>
 
-          <Button
-            variant="outlined"
-            onClick={loadClients}
-            disabled={loading}
-          >
-            Refresh
-          </Button>
+              <Button
+                variant="outlined"
+                onClick={loadClients}
+                disabled={loading}
+                sx={{ minHeight: 44 }}
+              >
+                Refresh
+              </Button>
+            </>
+          )}
 
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={onCreate}
-            sx={{ ml: 'auto' }}
+            fullWidth={isMobile}
+            sx={{ ml: isMobile ? 0 : 'auto', minHeight: 44 }}
           >
             Add Client
           </Button>
         </Box>
       </Paper>
 
-      {/* Data Grid */}
-      <Paper sx={{ height: 600, width: '100%' }}>
-        <DataGrid
-          rows={clients}
-          columns={columns}
-          loading={loading}
-          paginationMode="server"
-          rowCount={pagination.total}
-          pageSizeOptions={[10, 20, 50]}
-          paginationModel={{
-            page: pagination.page,
-            pageSize: pagination.pageSize,
-          }}
-          onPaginationModelChange={handlePaginationModelChange}
-          onRowClick={(params) => handleView(params.row)}
-          disableRowSelectionOnClick={false}
-          slots={{
-            noRowsOverlay: () => (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 3 }}>
-                <BusinessIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  No clients found
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {searchQuery || typeFilter ? 'Try adjusting your search criteria' : 'Get started by adding your first client'}
-                </Typography>
-              </Box>
-            ),
-            loadingOverlay: () => (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                <CircularProgress />
-              </Box>
-            ),
-          }}
-        />
-      </Paper>
+      {/* Data Grid / Mobile List */}
+      {isMobile ? (
+        <>
+          {loading && (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
+          )}
+          {!loading && clients.length === 0 && (
+            <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <BusinessIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No clients found
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                {searchQuery || typeFilter ? 'Try adjusting your search criteria' : 'Get started by adding your first client'}
+              </Typography>
+              {onCreate && (
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={onCreate}
+                  sx={{ minHeight: 44 }}
+                >
+                  Add Client
+                </Button>
+              )}
+            </Paper>
+          )}
+          {!loading && clients.length > 0 && (
+            <MobileListView items={mobileListItems} />
+          )}
+        </>
+      ) : (
+        <Paper sx={{ height: 600, width: '100%' }}>
+          <DataGrid
+            rows={clients}
+            columns={columns}
+            loading={loading}
+            paginationMode="server"
+            rowCount={pagination.total}
+            pageSizeOptions={[10, 20, 50]}
+            paginationModel={{
+              page: pagination.page,
+              pageSize: pagination.pageSize,
+            }}
+            onPaginationModelChange={handlePaginationModelChange}
+            onRowClick={(params) => handleView(params.row)}
+            disableRowSelectionOnClick={false}
+            slots={{
+              noRowsOverlay: () => (
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 3 }}>
+                  <BusinessIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    No clients found
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {searchQuery || typeFilter ? 'Try adjusting your search criteria' : 'Get started by adding your first client'}
+                  </Typography>
+                </Box>
+              ),
+              loadingOverlay: () => (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                  <CircularProgress />
+                </Box>
+              ),
+            }}
+          />
+        </Paper>
+      )}
 
       {/* Error Alert */}
       {error && (

@@ -49,9 +49,12 @@ import {
 } from '@mui/icons-material';
 import { useAuthStore } from '../store';
 import { adminService, AdminUser, CreateUserRequest, UpdateUserRequest } from '../services';
+import { useMobileView } from '../hooks';
+import { MobileListView, MobileListItem } from '../components/common';
 
 const UserManagement: React.FC = () => {
   const { user: currentUser } = useAuthStore();
+  const isMobile = useMobileView();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -235,6 +238,49 @@ const UserManagement: React.FC = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
+  // Convert users to mobile list items
+  const mobileListItems: MobileListItem[] = users.map((user) => ({
+    id: user.id,
+    title: `${user.first_name} ${user.last_name}`,
+    subtitle: user.email,
+    description: user.phone || 'No phone',
+    status: {
+      label: user.role.replace(/_/g, ' '),
+      color: getRoleColor(user.role) as any,
+    },
+    metadata: [
+      { label: 'Active', value: user.is_active ? 'Yes' : 'No' },
+      { label: 'Created', value: formatDate(user.created_at) },
+    ],
+    actions: [
+      {
+        label: 'View',
+        icon: <ViewIcon />,
+        onClick: () => handleOpenDialog('view', user),
+      },
+      {
+        label: 'Edit',
+        icon: <EditIcon />,
+        onClick: () => handleOpenDialog('edit', user),
+      },
+      {
+        label: 'Reset Password',
+        icon: <LockResetIcon />,
+        onClick: () => {
+          setSelectedUserId(user.id);
+          setPasswordDialog(true);
+        },
+      },
+      {
+        label: 'Delete',
+        icon: <DeleteIcon />,
+        onClick: () => handleDelete(user.id),
+        color: 'error' as const,
+      },
+    ],
+    onClick: () => handleOpenDialog('view', user),
+  }));
+
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       {/* Header */}
@@ -280,6 +326,40 @@ const UserManagement: React.FC = () => {
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
               <CircularProgress />
             </Box>
+          ) : isMobile ? (
+            <>
+              {users.length === 0 ? (
+                <Box sx={{ p: 4, textAlign: 'center' }}>
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    No users found
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    Create your first user to get started
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => handleOpenDialog('create')}
+                    sx={{ minHeight: 44 }}
+                  >
+                    Add User
+                  </Button>
+                </Box>
+              ) : (
+                <MobileListView items={mobileListItems} />
+              )}
+              <TablePagination
+                component="div"
+                count={totalUsers}
+                page={page}
+                onPageChange={(_, newPage) => setPage(newPage)}
+                rowsPerPage={rowsPerPage}
+                onRowsPerPageChange={(event) => {
+                  setRowsPerPage(parseInt(event.target.value, 10));
+                  setPage(0);
+                }}
+              />
+            </>
           ) : (
             <>
               <TableContainer component={Paper} variant="outlined">
@@ -305,7 +385,7 @@ const UserManagement: React.FC = () => {
                         <TableCell>{user.phone || '-'}</TableCell>
                         <TableCell>
                           <Chip
-                            label={user.role.replace('_', ' ')}
+                            label={user.role.replace(/_/g, ' ')}
                             color={getRoleColor(user.role) as any}
                             size="small"
                           />

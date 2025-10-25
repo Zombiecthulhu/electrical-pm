@@ -57,6 +57,8 @@ import {
 } from '../../store';
 import { Project, ProjectFilters } from '../../services/project.service';
 import ProjectKanban from './ProjectKanban';
+import { useMobileView } from '../../hooks';
+import { MobileListView, MobileListItem, DeleteConfirmDialog } from '../../components/common';
 
 // Status color mapping
 const getStatusColor = (status: string) => {
@@ -127,6 +129,7 @@ const getBillingTypeLabel = (billingType: string) => {
 
 const ProjectList: React.FC = () => {
   const navigate = useNavigate();
+  const isMobile = useMobileView();
   
   // Store state
   const projects = useProjects();
@@ -233,6 +236,42 @@ const ProjectList: React.FC = () => {
     setStatusFilter('');
     setPage(0);
   }, []);
+
+  // Convert projects to mobile list items
+  const mobileListItems: MobileListItem[] = projects.map((project) => ({
+    id: project.id,
+    title: project.name,
+    subtitle: project.client?.name || 'No Client',
+    description: `${getBillingTypeLabel(project.billingType)} • ${project.type}`,
+    status: {
+      label: getStatusLabel(project.status),
+      color: getStatusColor(project.status) as any,
+    },
+    metadata: [
+      { label: 'Project #', value: `#${project.projectNumber}` },
+      { label: 'Start Date', value: project.startDate ? formatDate(project.startDate) : 'Not set' },
+      { label: 'Budget', value: project.budget ? formatCurrency(project.budget) : 'N/A' },
+    ],
+    actions: [
+      {
+        label: 'View',
+        icon: <ViewIcon />,
+        onClick: () => handleView(project.id),
+      },
+      {
+        label: 'Edit',
+        icon: <EditIcon />,
+        onClick: () => handleEdit(project.id),
+      },
+      {
+        label: 'Delete',
+        icon: <DeleteIcon />,
+        onClick: () => handleDeleteClick(project),
+        color: 'error' as const,
+      },
+    ],
+    onClick: () => navigate(`/projects/${project.id}`),
+  }));
 
   // Define columns
   const columns: GridColDef[] = [
@@ -359,32 +398,42 @@ const ProjectList: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Page Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" component="h1" fontWeight="bold">
+      <Box 
+        display="flex" 
+        justifyContent="space-between" 
+        alignItems={isMobile ? 'flex-start' : 'center'} 
+        mb={3}
+        flexDirection={isMobile ? 'column' : 'row'}
+        gap={isMobile ? 2 : 0}
+      >
+        <Typography variant={isMobile ? 'h5' : 'h4'} component="h1" fontWeight="bold">
           Projects
         </Typography>
-        <Box display="flex" alignItems="center" gap={2}>
-          {/* View Toggle */}
-          <ToggleButtonGroup
-            value={viewMode}
-            exclusive
-            onChange={handleViewModeChange}
-            size="small"
-            aria-label="view mode"
-          >
-            <ToggleButton value="list" aria-label="list view">
-              <ListViewIcon />
-            </ToggleButton>
-            <ToggleButton value="kanban" aria-label="kanban view">
-              <KanbanViewIcon />
-            </ToggleButton>
-          </ToggleButtonGroup>
+        <Box display="flex" alignItems="center" gap={2} width={isMobile ? '100%' : 'auto'}>
+          {/* View Toggle - Hide on mobile */}
+          {!isMobile && (
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={handleViewModeChange}
+              size="small"
+              aria-label="view mode"
+            >
+              <ToggleButton value="list" aria-label="list view">
+                <ListViewIcon />
+              </ToggleButton>
+              <ToggleButton value="kanban" aria-label="kanban view">
+                <KanbanViewIcon />
+              </ToggleButton>
+            </ToggleButtonGroup>
+          )}
           
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleNewProject}
-            sx={{ minWidth: 140 }}
+            fullWidth={isMobile}
+            sx={{ minWidth: isMobile ? '100%' : 140, minHeight: 44 }}
           >
             New Project
           </Button>
@@ -392,14 +441,26 @@ const ProjectList: React.FC = () => {
       </Box>
 
       {/* Search and Filter Bar */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+      <Paper sx={{ p: isMobile ? 1.5 : 2, mb: 3 }}>
+        <Box 
+          display="flex" 
+          gap={isMobile ? 1.5 : 2} 
+          alignItems={isMobile ? 'stretch' : 'center'}
+          flexDirection={isMobile ? 'column' : 'row'}
+        >
           <TextField
             placeholder="Search projects..."
             value={searchTerm}
             onChange={handleSearchChange}
             size="small"
-            sx={{ minWidth: 200, flexGrow: 1 }}
+            fullWidth={isMobile}
+            sx={{ 
+              minWidth: isMobile ? '100%' : 200, 
+              flexGrow: 1,
+              '& .MuiInputBase-input': {
+                fontSize: '16px', // Prevent iOS zoom
+              },
+            }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -409,7 +470,11 @@ const ProjectList: React.FC = () => {
             }}
           />
           
-          <FormControl size="small" sx={{ minWidth: 120 }}>
+          <FormControl 
+            size="small" 
+            fullWidth={isMobile}
+            sx={{ minWidth: isMobile ? '100%' : 120 }}
+          >
             <InputLabel>Status</InputLabel>
             <Select
               value={statusFilter}
@@ -429,6 +494,8 @@ const ProjectList: React.FC = () => {
             variant="outlined"
             onClick={handleClearFilters}
             disabled={!searchTerm && !statusFilter}
+            fullWidth={isMobile}
+            sx={{ minHeight: 44 }}
           >
             Clear Filters
           </Button>
@@ -448,9 +515,40 @@ const ProjectList: React.FC = () => {
 
       {/* Content based on view mode */}
       {viewMode === 'list' ? (
-        /* Data Grid */
-        <Paper sx={{ height: 600, width: '100%' }}>
-          <DataGrid
+        isMobile ? (
+          /* Mobile Card List */
+          <>
+            {isLoading && (
+              <Box display="flex" justifyContent="center" py={4}>
+                <CircularProgress />
+              </Box>
+            )}
+            {!isLoading && projects.length === 0 && (
+              <Paper sx={{ p: 4, textAlign: 'center' }}>
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  No projects yet
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  Create your first project to get started
+                </Typography>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={handleNewProject}
+                  sx={{ minHeight: 44 }}
+                >
+                  Create Project
+                </Button>
+              </Paper>
+            )}
+            {!isLoading && projects.length > 0 && (
+              <MobileListView items={mobileListItems} />
+            )}
+          </>
+        ) : (
+          /* Desktop Data Grid */
+          <Paper sx={{ height: 600, width: '100%' }}>
+            <DataGrid
             rows={projects}
             columns={columns}
             loading={isLoading}
@@ -526,49 +624,20 @@ const ProjectList: React.FC = () => {
             }}
           />
         </Paper>
+        )
       ) : (
         /* Kanban View */
         <ProjectKanban />
       )}
 
       {/* Delete Confirmation Dialog */}
-      {deleteDialogOpen && projectToDelete && (
-        <Box
-          sx={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1300,
-          }}
-        >
-          <Paper sx={{ p: 3, maxWidth: 400, width: '90%' }}>
-            <Typography variant="h6" gutterBottom>
-              Delete Project
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Are you sure you want to delete "{projectToDelete.name}"? This action cannot be undone.
-            </Typography>
-            <Box display="flex" gap={2} justifyContent="flex-end">
-              <Button onClick={handleDeleteCancel}>
-                Cancel
-              </Button>
-              <Button
-                variant="contained"
-                color="error"
-                onClick={handleDeleteConfirm}
-              >
-                Delete
-              </Button>
-            </Box>
-          </Paper>
-        </Box>
-      )}
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        itemName="Project"
+        message={`Are you sure you want to delete "${projectToDelete?.name}"? This action cannot be undone.`}
+      />
     </Box>
   );
 };

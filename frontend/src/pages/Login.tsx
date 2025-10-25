@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -39,9 +39,14 @@ interface LoginFormData {
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   
   // Auth store
   const { login, isLoading, error, clearError, isAuthenticated } = useAuthStore();
+  
+  // Check for session expired query parameter
+  const searchParams = new URLSearchParams(location.search);
+  const sessionExpired = searchParams.get('session') === 'expired';
   
   // Form state
   const [formData, setFormData] = useState<LoginFormData>({
@@ -194,6 +199,13 @@ const Login: React.FC = () => {
             </Typography>
           </Box>
 
+          {/* Session Expired Message */}
+          {sessionExpired && !error && !errors.general && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Your session has expired. Please log in again to continue.
+            </Alert>
+          )}
+          
           {/* Error Messages */}
           {errors.general && (
             <Alert severity="error" sx={{ mb: 2 }}>

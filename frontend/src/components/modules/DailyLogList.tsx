@@ -46,6 +46,8 @@ import {
 } from '@mui/icons-material';
 import { DailyLog, DailyLogFilters, DailyLogPaginationOptions } from '../../services/daily-log.service';
 import { format } from 'date-fns';
+import { useMobileView } from '../../hooks';
+import { MobileListView, MobileListItem } from '../common';
 
 interface DailyLogListProps {
   dailyLogs: DailyLog[];
@@ -78,6 +80,8 @@ const DailyLogList: React.FC<DailyLogListProps> = ({
   onCreate,
   projectId,
 }) => {
+  const isMobile = useMobileView();
+  
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [weatherFilter, setWeatherFilter] = useState('');
@@ -182,6 +186,42 @@ const DailyLogList: React.FC<DailyLogListProps> = ({
     if (weatherLower.includes('windy') || weatherLower.includes('foggy')) return 'warning';
     return 'default';
   };
+
+  // Convert daily logs to mobile list items
+  const mobileListItems: MobileListItem[] = dailyLogs.map((log) => ({
+    id: log.id,
+    title: formatDate(log.date),
+    subtitle: log.project?.name || 'Unknown Project',
+    description: log.workPerformed ? log.workPerformed.substring(0, 100) + (log.workPerformed.length > 100 ? '...' : '') : 'No work description',
+    status: log.weather ? {
+      label: log.weather,
+      color: getWeatherChipColor(log.weather) as any,
+    } : undefined,
+    metadata: [
+      { label: 'Project #', value: log.project?.projectNumber || 'N/A' },
+      { label: 'Crew', value: formatCrewMembers(log.crewMembers || null) },
+      { label: 'Hours', value: log.hoursWorked ? `${log.hoursWorked} hrs` : 'N/A' },
+    ],
+    actions: [
+      ...(onView ? [{
+        label: 'View',
+        icon: <ViewIcon />,
+        onClick: () => handleView(log),
+      }] : []),
+      ...(onEdit ? [{
+        label: 'Edit',
+        icon: <EditIcon />,
+        onClick: () => handleEdit(log),
+      }] : []),
+      ...(onDelete ? [{
+        label: 'Delete',
+        icon: <DeleteIcon />,
+        onClick: () => handleDelete(log),
+        color: 'error' as const,
+      }] : []),
+    ],
+    onClick: onView ? () => handleView(log) : undefined,
+  }));
 
   // Define columns
   const columns: GridColDef[] = [
@@ -330,19 +370,28 @@ const DailyLogList: React.FC<DailyLogListProps> = ({
   return (
     <Box>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Box 
+        display="flex" 
+        justifyContent="space-between" 
+        alignItems={isMobile ? 'flex-start' : 'center'} 
+        flexDirection={isMobile ? 'column' : 'row'}
+        gap={isMobile ? 2 : 0}
+        mb={3}
+      >
+        <Typography variant={isMobile ? 'h6' : 'h5'} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <WorkIcon color="primary" />
           Daily Logs
           {projectId && (
             <Chip label="Project Filtered" size="small" color="primary" variant="outlined" />
           )}
         </Typography>
-        <Box display="flex" gap={1}>
+        <Box display="flex" gap={1} width={isMobile ? '100%' : 'auto'} flexDirection={isMobile ? 'column' : 'row'}>
           <Button
             variant="outlined"
             startIcon={<FilterIcon />}
             onClick={() => setShowFilters(!showFilters)}
+            fullWidth={isMobile}
+            sx={{ minHeight: 44 }}
           >
             {showFilters ? 'Hide Filters' : 'Show Filters'}
           </Button>
@@ -351,6 +400,8 @@ const DailyLogList: React.FC<DailyLogListProps> = ({
               variant="contained"
               startIcon={<AddIcon />}
               onClick={onCreate}
+              fullWidth={isMobile}
+              sx={{ minHeight: 44 }}
             >
               New Daily Log
             </Button>
@@ -438,67 +489,101 @@ const DailyLogList: React.FC<DailyLogListProps> = ({
         </Alert>
       )}
 
-      {/* Data Grid */}
-      <Paper sx={{ height: 600, width: '100%' }}>
-        <DataGrid
-          rows={dailyLogs}
-          columns={columns}
-          loading={isLoading}
-          paginationMode="server"
-          rowCount={totalDailyLogs}
-          initialState={{
-            pagination: {
-              paginationModel: {
-                page: currentPage,
-                pageSize: pageSize,
+      {/* Data Grid / Mobile List */}
+      {isMobile ? (
+        <>
+          {isLoading && (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
+          )}
+          {!isLoading && dailyLogs.length === 0 && (
+            <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <WorkIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No daily logs found
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                {projectId ? 'No daily logs for this project yet.' : 'Create your first daily log to get started.'}
+              </Typography>
+              {onCreate && (
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={onCreate}
+                  sx={{ minHeight: 44 }}
+                >
+                  Create Daily Log
+                </Button>
+              )}
+            </Paper>
+          )}
+          {!isLoading && dailyLogs.length > 0 && (
+            <MobileListView items={mobileListItems} />
+          )}
+        </>
+      ) : (
+        <Paper sx={{ height: 600, width: '100%' }}>
+          <DataGrid
+            rows={dailyLogs}
+            columns={columns}
+            loading={isLoading}
+            paginationMode="server"
+            rowCount={totalDailyLogs}
+            initialState={{
+              pagination: {
+                paginationModel: {
+                  page: currentPage,
+                  pageSize: pageSize,
+                },
               },
-            },
-          }}
-          pageSizeOptions={[10, 20, 50, 100]}
-          onPaginationModelChange={handlePaginationModelChange}
-          onRowClick={(params) => handleView(params.row)}
-          disableRowSelectionOnClick={false}
-          slots={{
-            toolbar: GridToolbar,
-            noRowsOverlay: () => (
-              <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height="100%" gap={2}>
-                <WorkIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
-                <Typography variant="h6" color="text.secondary">
-                  No daily logs found
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {projectId ? 'No daily logs for this project yet.' : 'Create your first daily log to get started.'}
-                </Typography>
-                {onCreate && (
-                  <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={onCreate}
-                  >
-                    Create Daily Log
-                  </Button>
-                )}
-              </Box>
-            ),
-            loadingOverlay: () => (
-              <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height="100%" gap={2}>
-                <CircularProgress />
-                <Typography variant="body2" color="text.secondary">
-                  Loading daily logs...
-                </Typography>
-              </Box>
-            ),
-          }}
-          sx={{
-            '& .MuiDataGrid-cell:focus': {
-              outline: 'none',
-            },
-            '& .MuiDataGrid-row:hover': {
-              backgroundColor: 'action.hover',
-            },
-          }}
-        />
-      </Paper>
+            }}
+            pageSizeOptions={[10, 20, 50, 100]}
+            onPaginationModelChange={handlePaginationModelChange}
+            onRowClick={(params) => handleView(params.row)}
+            disableRowSelectionOnClick={false}
+            slots={{
+              toolbar: GridToolbar,
+              noRowsOverlay: () => (
+                <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height="100%" gap={2}>
+                  <WorkIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
+                  <Typography variant="h6" color="text.secondary">
+                    No daily logs found
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {projectId ? 'No daily logs for this project yet.' : 'Create your first daily log to get started.'}
+                  </Typography>
+                  {onCreate && (
+                    <Button
+                      variant="contained"
+                      startIcon={<AddIcon />}
+                      onClick={onCreate}
+                    >
+                      Create Daily Log
+                    </Button>
+                  )}
+                </Box>
+              ),
+              loadingOverlay: () => (
+                <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height="100%" gap={2}>
+                  <CircularProgress />
+                  <Typography variant="body2" color="text.secondary">
+                    Loading daily logs...
+                  </Typography>
+                </Box>
+              ),
+            }}
+            sx={{
+              '& .MuiDataGrid-cell:focus': {
+                outline: 'none',
+              },
+              '& .MuiDataGrid-row:hover': {
+                backgroundColor: 'action.hover',
+              },
+            }}
+          />
+        </Paper>
+      )}
     </Box>
   );
 };

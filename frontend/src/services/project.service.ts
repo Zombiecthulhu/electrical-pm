@@ -125,7 +125,7 @@ export interface CreateProjectData {
   projectNumber: string;
   clientId: string;
   contactId?: string | null;
-  status: 'QUOTED' | 'AWARDED' | 'IN_PROGRESS' | 'INSPECTION' | 'COMPLETE';
+  status?: 'QUOTED' | 'AWARDED' | 'IN_PROGRESS' | 'INSPECTION' | 'COMPLETE';
   type: string;
   billingType: 'TIME_AND_MATERIALS' | 'LUMP_SUM' | 'SERVICE_CALL';
   location: string;
@@ -312,7 +312,8 @@ export const createProject = async (projectData: CreateProjectData): Promise<Pro
     name: projectData.name,
     project_number: projectData.projectNumber,
     client_id: projectData.clientId,
-    status: projectData.status,
+    contact_id: projectData.contactId || null,
+    status: projectData.status || 'QUOTED',
     type: projectData.type.toUpperCase(), // Convert to uppercase for backend enum
     billing_type: projectData.billingType,
     location: projectData.location,
@@ -320,6 +321,7 @@ export const createProject = async (projectData: CreateProjectData): Promise<Pro
     end_date: projectData.endDate,
     budget: projectData.budget,
     actual_cost: projectData.actualCost,
+    description: projectData.description || null,
   };
 
   const response = await api.post('/projects', transformedData);

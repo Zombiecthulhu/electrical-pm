@@ -7,6 +7,7 @@ import { SnackbarProvider } from 'notistack';
 import { api, ApiResponse } from './services';
 import { useAuthStore, useThemeStore } from './store';
 import { AppLayout } from './components/layout';
+import { SessionTimeout } from './components/common';
 import { createAppTheme } from './theme/theme';
 
 // Lazy load all page components for code splitting
@@ -23,6 +24,7 @@ const ProjectList = lazy(() => import('./pages/Projects/ProjectList'));
 const ProjectForm = lazy(() => import('./pages/Projects/ProjectForm'));
 const ProjectDetail = lazy(() => import('./pages/Projects/ProjectDetail'));
 const DocumentBrowser = lazy(() => import('./pages/Documents/DocumentBrowser'));
+const EmployeeDirectory = lazy(() => import('./pages/EmployeeDirectory'));
 
 // Loading Fallback Component
 const LoadingFallback: React.FC = () => (
@@ -111,6 +113,9 @@ function App() {
   return (
     <AppThemeProvider>
       <CssBaseline />
+      {/* Session timeout warning */}
+      <SessionTimeout warningMinutes={5} />
+      
       <Router>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
@@ -262,6 +267,18 @@ function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <QuoteManagement />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Employee Directory Routes */}
+          <Route 
+            path="/employees" 
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <EmployeeDirectory />
                 </AppLayout>
               </ProtectedRoute>
             }

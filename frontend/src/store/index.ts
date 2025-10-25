@@ -45,4 +45,11 @@ export {
 export { useClientStore } from './client.store';
 export { useDailyLogStore } from './daily-log.store';
 export { default as useQuoteStore } from './quote.store';
+export {
+  useEmployeeStore,
+  useEmployees,
+  useSelectedEmployee,
+  useEmployeeLoading,
+  useEmployeeError
+} from './employee.store';
 

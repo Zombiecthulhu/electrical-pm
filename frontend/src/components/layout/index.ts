@@ -20,4 +20,5 @@
 
 // Layout components will be exported here as they are created
 export { default as AppLayout } from './AppLayout';
+export { MobileBottomNav } from './MobileBottomNav';
 

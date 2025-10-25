@@ -99,18 +99,16 @@ export const useModalKeyboard = (
 ) => {
   useEscapeKey(onClose, enabled);
 
-  if (onConfirm) {
-    // Only trigger Enter if not in a textarea or with Ctrl/Cmd
-    useKeyboardShortcut(
-      {
-        key: 'Enter',
-        ctrl: true,
-        callback: onConfirm,
-        preventDefault: true,
-      },
-      enabled
-    );
-  }
+  // Always call the hook, but only enable if onConfirm is provided
+  useKeyboardShortcut(
+    {
+      key: 'Enter',
+      ctrl: true,
+      callback: onConfirm || (() => {}),
+      preventDefault: true,
+    },
+    enabled && !!onConfirm
+  );
 };
 
 /**

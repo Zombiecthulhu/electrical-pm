@@ -17,7 +17,6 @@ import {
   InputLabel,
   Alert,
   CircularProgress,
-  Paper,
   FormHelperText,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -42,6 +41,13 @@ import {
   LocationOn as LocationIcon,
   Category as CategoryIcon,
 } from '@mui/icons-material';
+import {
+  ResponsiveFormWrapper,
+  FormRow,
+  FormSection,
+  FormActions,
+  mobileFormFieldProps,
+} from '../../components/common';
 
 // Form data interface
 interface ProjectFormData {
@@ -210,6 +216,8 @@ const ProjectForm: React.FC = () => {
     setSuccessMessage('');
 
     try {
+      console.log('ProjectForm - Submitting data:', data);
+      
       // Prepare form data
       const formData = {
         name: data.name,
@@ -225,23 +233,36 @@ const ProjectForm: React.FC = () => {
         description: data.description || null,
       };
 
+      console.log('ProjectForm - Prepared form data:', formData);
+
       if (isEdit && id) {
         // Update existing project
         const result = await updateProject(id, formData as UpdateProjectData);
+        console.log('ProjectForm - Update result:', result);
         if (result) {
           setSuccessMessage('Project updated successfully!');
           setTimeout(() => navigate('/projects'), 2000);
         }
       } else {
         // Create new project
+        console.log('ProjectForm - Creating new project...');
         const result = await createProject(formData as CreateProjectData);
+        console.log('ProjectForm - Create result:', result);
         if (result) {
           setSuccessMessage('Project created successfully!');
           setTimeout(() => navigate('/projects'), 2000);
+        } else {
+          console.error('ProjectForm - Create returned false/null');
         }
       }
-    } catch (error) {
-      console.error('Error saving project:', error);
+    } catch (error: any) {
+      console.error('ProjectForm - Error saving project:', error);
+      console.error('ProjectForm - Error details:', {
+        message: error?.message,
+        response: error?.response?.data,
+        stack: error?.stack
+      });
+      alert(`Failed to save project: ${error?.message || 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -259,14 +280,11 @@ const ProjectForm: React.FC = () => {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
-        {/* Page Header */}
-        <Box display="flex" alignItems="center" gap={2} mb={3}>
-          <Typography variant="h4" component="h1" fontWeight="bold">
-            {isEdit ? 'Edit Project' : 'Create New Project'}
-          </Typography>
-        </Box>
-
+      <ResponsiveFormWrapper
+        title={isEdit ? 'Edit Project' : 'Create New Project'}
+        subtitle={isEdit ? 'Update project details below' : 'Fill in project information to get started'}
+        maxWidth="md"
+      >
         {/* Success Message */}
         {successMessage && (
           <Alert 
@@ -286,363 +304,355 @@ const ProjectForm: React.FC = () => {
         )}
 
         {/* Form */}
-        <Paper sx={{ p: 3 }}>
-          <Box component="form" onSubmit={handleSubmit(onSubmit)}>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-                gap: 3,
-              }}
-            >
+        <Box component="form" onSubmit={handleSubmit(onSubmit)}>
+          {/* Section 1: Basic Information */}
+          <FormSection 
+            title="Basic Information"
+            subtitle="Project name, number, and identification"
+          >
+            <FormRow columns={2}>
               {/* Project Name */}
-              <Box>
-                <Controller
-                  name="name"
-                  control={control}
-                  rules={{ 
-                    required: 'Project name is required',
-                    minLength: {
-                      value: 3,
-                      message: 'Project name must be at least 3 characters'
-                    }
-                  }}
-                  render={({ field }: { field: any }) => (
-                    <TextField
-                      {...field}
-                      label="Project Name"
-                      fullWidth
-                      required
-                      error={!!errors.name}
-                      helperText={errors.name?.message}
-                      InputProps={{
-                        startAdornment: <BusinessIcon sx={{ mr: 1, color: 'action.active' }} />
-                      }}
-                    />
-                  )}
-                />
-              </Box>
+              <Controller
+                name="name"
+                control={control}
+                rules={{ 
+                  required: 'Project name is required',
+                  minLength: {
+                    value: 3,
+                    message: 'Project name must be at least 3 characters'
+                  }
+                }}
+                render={({ field }: { field: any }) => (
+                  <TextField
+                    {...field}
+                    label="Project Name"
+                    required
+                    error={!!errors.name}
+                    helperText={errors.name?.message}
+                    InputProps={{
+                      startAdornment: <BusinessIcon sx={{ mr: 1, color: 'action.active' }} />
+                    }}
+                    {...mobileFormFieldProps}
+                  />
+                )}
+              />
 
               {/* Project Number */}
-              <Box>
-                <Controller
-                  name="projectNumber"
-                  control={control}
-                  rules={{
-                    pattern: {
-                      value: /^[A-Z0-9-]+$/,
-                      message: 'Project number must contain only uppercase letters, numbers, and hyphens'
-                    }
-                  }}
-                  render={({ field }: { field: any }) => (
-                    <TextField
-                      {...field}
-                      label="Project Number"
-                      fullWidth
-                      placeholder="e.g., ELEC-2024-001"
-                      error={!!errors.projectNumber}
-                      helperText={errors.projectNumber?.message || 'Optional project identifier'}
-                    />
-                  )}
-                />
-              </Box>
+              <Controller
+                name="projectNumber"
+                control={control}
+                rules={{
+                  pattern: {
+                    value: /^[A-Z0-9-]+$/,
+                    message: 'Project number must contain only uppercase letters, numbers, and hyphens'
+                  }
+                }}
+                render={({ field }: { field: any }) => (
+                  <TextField
+                    {...field}
+                    label="Project Number"
+                    placeholder="e.g., ELEC-2024-001"
+                    error={!!errors.projectNumber}
+                    helperText={errors.projectNumber?.message || 'Optional project identifier'}
+                    {...mobileFormFieldProps}
+                  />
+                )}
+              />
+            </FormRow>
 
+            <FormRow columns={2}>
               {/* Client Selection */}
-              <Box>
-                <Controller
-                  name="clientId"
-                  control={control}
-                  rules={{ required: 'Client selection is required' }}
-                  render={({ field }: { field: any }) => (
-                    <FormControl fullWidth required error={!!errors.clientId}>
-                      <InputLabel>Client</InputLabel>
-                      <Select
-                        {...field}
-                        label="Client"
-                        startAdornment={<BusinessIcon sx={{ mr: 1, color: 'action.active' }} />}
-                        disabled={clientsLoading}
-                      >
-                        {clientsLoading ? (
-                          <MenuItem disabled>Loading clients...</MenuItem>
-                        ) : clientsError ? (
-                          <MenuItem disabled>Error loading clients</MenuItem>
-                        ) : clients.length === 0 ? (
-                          <MenuItem disabled>No clients available</MenuItem>
-                        ) : (
-                          clients.map((client) => (
-                            <MenuItem key={client.id} value={client.id}>
-                              {client.name}
-                            </MenuItem>
-                          ))
-                        )}
-                      </Select>
-                      {errors.clientId && (
-                        <FormHelperText>{errors.clientId.message}</FormHelperText>
+              <Controller
+                name="clientId"
+                control={control}
+                rules={{ required: 'Client selection is required' }}
+                render={({ field }: { field: any }) => (
+                  <FormControl required error={!!errors.clientId} {...mobileFormFieldProps}>
+                    <InputLabel>Client</InputLabel>
+                    <Select
+                      {...field}
+                      label="Client"
+                      startAdornment={<BusinessIcon sx={{ mr: 1, color: 'action.active' }} />}
+                      disabled={clientsLoading}
+                    >
+                      {clientsLoading ? (
+                        <MenuItem disabled>Loading clients...</MenuItem>
+                      ) : clientsError ? (
+                        <MenuItem disabled>Error loading clients</MenuItem>
+                      ) : clients.length === 0 ? (
+                        <MenuItem disabled>No clients available</MenuItem>
+                      ) : (
+                        clients.map((client) => (
+                          <MenuItem key={client.id} value={client.id}>
+                            {client.name}
+                          </MenuItem>
+                        ))
                       )}
-                    </FormControl>
-                  )}
-                />
-              </Box>
+                    </Select>
+                    {errors.clientId && (
+                      <FormHelperText>{errors.clientId.message}</FormHelperText>
+                    )}
+                  </FormControl>
+                )}
+              />
 
               {/* Client Contact Selection */}
-              <Box>
-                <Controller
-                  name="contactId"
-                  control={control}
-                  render={({ field }: { field: any }) => (
-                    <FormControl fullWidth error={!!errors.contactId}>
-                      <InputLabel>Primary Contact</InputLabel>
-                      <Select
-                        {...field}
-                        label="Primary Contact"
-                        disabled={!selectedClientId || contactsLoading}
-                      >
-                        {!selectedClientId ? (
-                          <MenuItem disabled>Select a client first</MenuItem>
-                        ) : contactsLoading ? (
-                          <MenuItem disabled>Loading contacts...</MenuItem>
-                        ) : contactsError ? (
-                          <MenuItem disabled>Error loading contacts</MenuItem>
-                        ) : clientContacts.length === 0 ? (
-                          <MenuItem disabled>No contacts available</MenuItem>
-                        ) : (
-                          clientContacts.map((contact) => (
-                            <MenuItem key={contact.id} value={contact.id}>
-                              {contact.name} {contact.title && `- ${contact.title}`}
-                            </MenuItem>
-                          ))
-                        )}
-                      </Select>
-                      {errors.contactId && (
-                        <FormHelperText>{errors.contactId.message}</FormHelperText>
-                      )}
-                      <FormHelperText>
-                        {!selectedClientId 
-                          ? 'Select a client to load contacts' 
-                          : 'Optional: Select a primary contact for this project'
-                        }
-                      </FormHelperText>
-                    </FormControl>
-                  )}
-                />
-              </Box>
-
-              {/* Project Type */}
-              <Box>
-                <Controller
-                  name="type"
-                  control={control}
-                  rules={{ required: 'Project type is required' }}
-                  render={({ field }: { field: any }) => (
-                    <FormControl fullWidth required error={!!errors.type}>
-                      <InputLabel>Project Type</InputLabel>
-                      <Select
-                        {...field}
-                        label="Project Type"
-                        startAdornment={<CategoryIcon sx={{ mr: 1, color: 'action.active' }} />}
-                      >
-                        {projectTypes.map((type) => (
-                          <MenuItem key={type.value} value={type.value}>
-                            {type.label}
+              <Controller
+                name="contactId"
+                control={control}
+                render={({ field }: { field: any }) => (
+                  <FormControl error={!!errors.contactId} {...mobileFormFieldProps}>
+                    <InputLabel>Primary Contact</InputLabel>
+                    <Select
+                      {...field}
+                      label="Primary Contact"
+                      disabled={!selectedClientId || contactsLoading}
+                    >
+                      {!selectedClientId ? (
+                        <MenuItem disabled>Select a client first</MenuItem>
+                      ) : contactsLoading ? (
+                        <MenuItem disabled>Loading contacts...</MenuItem>
+                      ) : contactsError ? (
+                        <MenuItem disabled>Error loading contacts</MenuItem>
+                      ) : clientContacts.length === 0 ? (
+                        <MenuItem disabled>No contacts available</MenuItem>
+                      ) : (
+                        clientContacts.map((contact) => (
+                          <MenuItem key={contact.id} value={contact.id}>
+                            {contact.name} {contact.title && `- ${contact.title}`}
                           </MenuItem>
-                        ))}
-                      </Select>
-                      {errors.type && (
-                        <FormHelperText>{errors.type.message}</FormHelperText>
+                        ))
                       )}
-                    </FormControl>
-                  )}
-                />
-              </Box>
+                    </Select>
+                    {errors.contactId && (
+                      <FormHelperText>{errors.contactId.message}</FormHelperText>
+                    )}
+                    <FormHelperText>
+                      {!selectedClientId 
+                        ? 'Select a client to load contacts' 
+                        : 'Optional: Select a primary contact for this project'
+                      }
+                    </FormHelperText>
+                  </FormControl>
+                )}
+              />
+            </FormRow>
+
+            <FormRow columns={2}>
+              {/* Project Type */}
+              <Controller
+                name="type"
+                control={control}
+                rules={{ required: 'Project type is required' }}
+                render={({ field }: { field: any }) => (
+                  <FormControl required error={!!errors.type} {...mobileFormFieldProps}>
+                    <InputLabel>Project Type</InputLabel>
+                    <Select
+                      {...field}
+                      label="Project Type"
+                      startAdornment={<CategoryIcon sx={{ mr: 1, color: 'action.active' }} />}
+                    >
+                      {projectTypes.map((type) => (
+                        <MenuItem key={type.value} value={type.value}>
+                          {type.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {errors.type && (
+                      <FormHelperText>{errors.type.message}</FormHelperText>
+                    )}
+                  </FormControl>
+                )}
+              />
 
               {/* Billing Type */}
-              <Box>
-                <Controller
-                  name="billingType"
-                  control={control}
-                  rules={{ required: 'Billing type is required' }}
-                  render={({ field }: { field: any }) => (
-                    <FormControl fullWidth error={!!errors.billingType}>
-                      <InputLabel>Billing Type</InputLabel>
-                      <Select
-                        {...field}
-                        label="Billing Type"
-                        startAdornment={<MoneyIcon sx={{ mr: 1, color: 'action.active' }} />}
-                      >
-                        {billingTypes.map((type) => (
-                          <MenuItem key={type.value} value={type.value}>
-                            {type.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      {errors.billingType && (
-                        <FormHelperText>{errors.billingType.message}</FormHelperText>
-                      )}
-                    </FormControl>
-                  )}
-                />
-              </Box>
+              <Controller
+                name="billingType"
+                control={control}
+                rules={{ required: 'Billing type is required' }}
+                render={({ field }: { field: any }) => (
+                  <FormControl error={!!errors.billingType} {...mobileFormFieldProps}>
+                    <InputLabel>Billing Type</InputLabel>
+                    <Select
+                      {...field}
+                      label="Billing Type"
+                      startAdornment={<MoneyIcon sx={{ mr: 1, color: 'action.active' }} />}
+                    >
+                      {billingTypes.map((type) => (
+                        <MenuItem key={type.value} value={type.value}>
+                          {type.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {errors.billingType && (
+                      <FormHelperText>{errors.billingType.message}</FormHelperText>
+                    )}
+                  </FormControl>
+                )}
+              />
+            </FormRow>
+          </FormSection>
 
+          {/* Section 2: Project Details */}
+          <FormSection 
+            title="Project Details"
+            subtitle="Location, schedule, and description"
+          >
+
+            <FormRow columns={1}>
               {/* Location */}
-              <Box sx={{ gridColumn: '1 / -1' }}>
-                <Controller
-                  name="location"
-                  control={control}
-                  rules={{ 
-                    required: 'Location is required',
-                    minLength: {
-                      value: 5,
-                      message: 'Location must be at least 5 characters'
-                    }
-                  }}
-                  render={({ field }: { field: any }) => (
-                    <TextField
-                      {...field}
-                      label="Location"
-                      fullWidth
-                      required
-                      placeholder="e.g., 123 Main St, City, State"
-                      error={!!errors.location}
-                      helperText={errors.location?.message}
-                      InputProps={{
-                        startAdornment: <LocationIcon sx={{ mr: 1, color: 'action.active' }} />
-                      }}
-                    />
-                  )}
-                />
-              </Box>
+              <Controller
+                name="location"
+                control={control}
+                rules={{ 
+                  required: 'Location is required',
+                  minLength: {
+                    value: 5,
+                    message: 'Location must be at least 5 characters'
+                  }
+                }}
+                render={({ field }: { field: any }) => (
+                  <TextField
+                    {...field}
+                    label="Location"
+                    required
+                    placeholder="e.g., 123 Main St, City, State"
+                    error={!!errors.location}
+                    helperText={errors.location?.message}
+                    InputProps={{
+                      startAdornment: <LocationIcon sx={{ mr: 1, color: 'action.active' }} />
+                    }}
+                    {...mobileFormFieldProps}
+                  />
+                )}
+              />
+            </FormRow>
 
-              {/* Description */}
-              <Box sx={{ gridColumn: '1 / -1' }}>
-                <Controller
-                  name="description"
-                  control={control}
-                  render={({ field }: { field: any }) => (
-                    <TextField
-                      {...field}
-                      label="Project Description"
-                      fullWidth
-                      multiline
-                      rows={4}
-                      placeholder="Describe the project scope, requirements, and any special considerations..."
-                      error={!!errors.description}
-                      helperText={errors.description?.message || 'Optional: Detailed description of the project'}
-                    />
-                  )}
-                />
-              </Box>
-
+            <FormRow columns={3}>
               {/* Start Date */}
-              <Box>
-                <Controller
-                  name="startDate"
-                  control={control}
-                  rules={{ required: 'Start date is required' }}
-                  render={({ field }: { field: any }) => (
-                    <DatePicker
-                      {...field}
-                      label="Start Date"
-                      slotProps={{
-                        textField: {
-                          fullWidth: true,
-                          required: true,
-                          error: !!errors.startDate,
-                          helperText: errors.startDate?.message,
-                          InputProps: {
-                            startAdornment: <CalendarIcon sx={{ mr: 1, color: 'action.active' }} />
-                          }
+              <Controller
+                name="startDate"
+                control={control}
+                rules={{ required: 'Start date is required' }}
+                render={({ field }: { field: any }) => (
+                  <DatePicker
+                    {...field}
+                    label="Start Date"
+                    slotProps={{
+                      textField: {
+                        ...mobileFormFieldProps,
+                        required: true,
+                        error: !!errors.startDate,
+                        helperText: errors.startDate?.message,
+                        InputProps: {
+                          startAdornment: <CalendarIcon sx={{ mr: 1, color: 'action.active' }} />
                         }
-                      }}
-                    />
-                  )}
-                />
-              </Box>
+                      }
+                    }}
+                  />
+                )}
+              />
 
               {/* End Date */}
-              <Box>
-                <Controller
-                  name="endDate"
-                  control={control}
-                  rules={{
-                    validate: (value: any) => {
-                      if (value && startDate && value < startDate) {
-                        return 'End date must be after start date';
-                      }
-                      return true;
+              <Controller
+                name="endDate"
+                control={control}
+                rules={{
+                  validate: (value: any) => {
+                    if (value && startDate && value < startDate) {
+                      return 'End date must be after start date';
                     }
-                  }}
-                  render={({ field }: { field: any }) => (
-                    <DatePicker
-                      {...field}
-                      label="End Date"
-                      minDate={startDate || undefined}
-                      slotProps={{
-                        textField: {
-                          fullWidth: true,
-                          error: !!errors.endDate,
-                          helperText: errors.endDate?.message || 'Optional end date'
-                        }
-                      }}
-                    />
-                  )}
-                />
-              </Box>
+                    return true;
+                  }
+                }}
+                render={({ field }: { field: any }) => (
+                  <DatePicker
+                    {...field}
+                    label="End Date"
+                    minDate={startDate || undefined}
+                    slotProps={{
+                      textField: {
+                        ...mobileFormFieldProps,
+                        error: !!errors.endDate,
+                        helperText: errors.endDate?.message || 'Optional end date'
+                      }
+                    }}
+                  />
+                )}
+              />
 
               {/* Budget */}
-              <Box>
-                <Controller
-                  name="budget"
-                  control={control}
-                  rules={{ 
-                    required: 'Budget is required',
-                    min: {
-                      value: 0,
-                      message: 'Budget must be a positive number'
-                    }
-                  }}
-                  render={({ field }: { field: any }) => (
-                    <TextField
-                      {...field}
-                      label="Budget"
-                      type="number"
-                      fullWidth
-                      required
-                      placeholder="0.00"
-                      error={!!errors.budget}
-                      helperText={errors.budget?.message}
-                      InputProps={{
-                        startAdornment: <MoneyIcon sx={{ mr: 1, color: 'action.active' }} />,
-                        inputProps: { min: 0, step: 0.01 }
-                      }}
-                    />
-                  )}
-                />
-              </Box>
-            </Box>
+              <Controller
+                name="budget"
+                control={control}
+                rules={{ 
+                  required: 'Budget is required',
+                  min: {
+                    value: 0,
+                    message: 'Budget must be a positive number'
+                  }
+                }}
+                render={({ field }: { field: any }) => (
+                  <TextField
+                    {...field}
+                    label="Budget"
+                    type="number"
+                    required
+                    placeholder="0.00"
+                    error={!!errors.budget}
+                    helperText={errors.budget?.message}
+                    InputProps={{
+                      startAdornment: <MoneyIcon sx={{ mr: 1, color: 'action.active' }} />,
+                      inputProps: { min: 0, step: 0.01 }
+                    }}
+                    {...mobileFormFieldProps}
+                  />
+                )}
+              />
+            </FormRow>
 
-            {/* Form Actions */}
-            <Box display="flex" gap={2} justifyContent="flex-end" mt={4}>
-              <Button
-                variant="outlined"
-                startIcon={<CancelIcon />}
-                onClick={handleCancel}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                startIcon={isSubmitting ? <CircularProgress size={20} /> : <SaveIcon />}
-                disabled={!isValid || isSubmitting || isLoading}
-                sx={{ minWidth: 120 }}
-              >
-                {isSubmitting ? 'Saving...' : isEdit ? 'Update Project' : 'Create Project'}
-              </Button>
-            </Box>
-          </Box>
-        </Paper>
-      </Box>
+            <FormRow columns={1}>
+              {/* Description */}
+              <Controller
+                name="description"
+                control={control}
+                render={({ field }: { field: any }) => (
+                  <TextField
+                    {...field}
+                    label="Project Description"
+                    multiline
+                    rows={4}
+                    placeholder="Describe the project scope, requirements, and any special considerations..."
+                    error={!!errors.description}
+                    helperText={errors.description?.message || 'Optional: Detailed description of the project'}
+                    {...mobileFormFieldProps}
+                  />
+                )}
+              />
+            </FormRow>
+          </FormSection>
+
+          {/* Form Actions */}
+          <FormActions>
+            <Button
+              variant="outlined"
+              startIcon={<CancelIcon />}
+              onClick={handleCancel}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              startIcon={isSubmitting ? <CircularProgress size={20} /> : <SaveIcon />}
+              disabled={!isValid || isSubmitting || isLoading}
+            >
+              {isSubmitting ? 'Saving...' : isEdit ? 'Update Project' : 'Create Project'}
+            </Button>
+          </FormActions>
+        </Box>
+      </ResponsiveFormWrapper>
     </LocalizationProvider>
   );
 };

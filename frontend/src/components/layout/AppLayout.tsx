@@ -35,6 +35,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store';
 import { useMobileView, useCompactView } from '../../hooks';
+import { MobileBottomNav } from './MobileBottomNav';
 
 const drawerWidth = 240;
 
@@ -79,6 +80,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     { text: 'Photos', icon: <PhotoCamera />, path: '/photos' },
     { text: 'Daily Logs', icon: <Work />, path: '/daily-logs' },
     { text: 'Quotes', icon: <RequestQuote />, path: '/quotes' },
+    { text: 'Employees', icon: <People />, path: '/employees' },
     { text: 'Users', icon: <People />, path: '/admin/users' },
     { text: 'Settings', icon: <Settings />, path: '/settings' },
   ];
@@ -243,6 +245,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         sx={{
           flexGrow: 1,
           p: { xs: 2, sm: 3 }, // Less padding on mobile
+          pb: { xs: 9, sm: 3 }, // Extra bottom padding on mobile for bottom nav
           width: { md: `calc(100% - ${drawerWidth}px)` },
           minHeight: '100vh',
           backgroundColor: 'background.default',
@@ -251,6 +254,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         <Toolbar />
         {children}
       </Box>
+
+      {/* Mobile Bottom Navigation - only visible on compact screens */}
+      <MobileBottomNav />
     </Box>
   );
 };

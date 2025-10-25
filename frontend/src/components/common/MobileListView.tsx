@@ -39,7 +39,7 @@ export interface MobileListItem {
     label: string;
     icon?: React.ReactNode;
     onClick: () => void;
-    color?: 'inherit' | 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
+    color?: 'inherit' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
   }>;
   onClick?: () => void;
 }

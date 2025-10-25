@@ -1,4 +1,4 @@
-# 📱 Mobile UI Optimization Plan
+npm start# 📱 Mobile UI Optimization Plan
 
 **Goal:** Make the entire app fully responsive and optimized for mobile devices (phones and tablets).
 

@@ -294,6 +294,13 @@ const Dashboard: React.FC = () => {
     },
     {
       icon: <People fontSize="large" />,
+      title: 'Employees',
+      description: 'Manage employee directory, job classifications, and contact information.',
+      path: '/employees',
+      color: theme.palette.primary.main,
+    },
+    {
+      icon: <People fontSize="large" />,
       title: 'Users',
       description: 'Manage user accounts, roles, and permissions for team members.',
       path: '/admin/users',
