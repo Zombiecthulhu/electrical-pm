@@ -38,6 +38,13 @@ model User {
   updated_quotes   Quote[]         @relation("UpdatedQuotes")
   employee         Employee?       @relation("EmployeeUser")
 
+  // Time tracking relationships
+  sign_ins_created        DailySignIn[]     @relation("SignInCreatedBy")
+  sign_ins_signed_out     DailySignIn[]     @relation("SignInSignedOutBy")
+  time_entries_created    TimeEntry[]       @relation("TimeEntryCreatedBy")
+  time_entries_approved   TimeEntry[]       @relation("TimeEntryApprovedBy")
+  timesheets_approved     WeeklyTimesheet[]
+
   @@index([email])
   @@index([role])
   @@index([is_active])
@@ -157,6 +164,10 @@ model Project {
   files      File[]
   daily_logs DailyLog[]
   expenses   ProjectExpense[]
+
+  // Time tracking relationships
+  sign_ins     DailySignIn[]
+  time_entries TimeEntry[]
 
   @@index([project_number])
   @@index([client_id])
@@ -388,6 +399,147 @@ enum QuoteStatus {
   REJECTED
 }
 
+// Time Keeping Module - Part 1: Daily Sign-In Sheet
+// Tracks when employees sign in/out each day (attendance)
+model DailySignIn {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Employee who signed in
+  employee_id String   @db.Uuid
+  employee    Employee @relation(fields: [employee_id], references: [id])
+
+  // Date and times
+  date           DateTime  @db.Date
+  sign_in_time   DateTime  @db.Timestamptz(6)
+  sign_out_time  DateTime? @db.Timestamptz(6)
+
+  // Who signed them in (foreman)
+  signed_in_by     String @db.Uuid
+  signed_in_by_user User   @relation("SignInCreatedBy", fields: [signed_in_by], references: [id])
+
+  // Who signed them out (if different)
+  signed_out_by      String? @db.Uuid
+  signed_out_by_user User?   @relation("SignInSignedOutBy", fields: [signed_out_by], references: [id])
+
+  // Location/Site
+  location   String?  // Job site address or name
+  project_id String?  @db.Uuid // Primary project for the day (optional)
+  project    Project? @relation(fields: [project_id], references: [id])
+
+  // Notes
+  notes String? @db.Text
+
+  // Audit
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  // Link to time entries
+  time_entries TimeEntry[]
+
+  @@unique([employee_id, date])
+  @@index([date])
+  @@index([employee_id])
+  @@index([signed_in_by])
+  @@index([project_id])
+  @@map("daily_sign_ins")
+}
+
+// Time Keeping Module - Part 2: Project Time Allocation
+// Tracks hours worked on specific projects
+model TimeEntry {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Employee and date
+  employee_id String   @db.Uuid
+  employee    Employee @relation(fields: [employee_id], references: [id])
+  date        DateTime @db.Date
+
+  // Project allocation
+  project_id String  @db.Uuid
+  project    Project @relation(fields: [project_id], references: [id])
+
+  // Hours worked
+  hours_worked Decimal @db.Decimal(5, 2) // e.g., 8.50 hours
+
+  // Time period (optional)
+  start_time DateTime? @db.Timestamptz(6)
+  end_time   DateTime? @db.Timestamptz(6)
+
+  // Type of work
+  work_type String? // Regular, Overtime, Double Time
+
+  // Description
+  description    String? @db.Text
+  task_performed String? // What they worked on
+
+  // Rates (optional - for cost tracking)
+  hourly_rate Decimal? @db.Decimal(10, 2)
+  total_cost  Decimal? @db.Decimal(10, 2)
+
+  // Link to sign-in (if they signed in that day)
+  sign_in_id String?       @db.Uuid
+  sign_in    DailySignIn? @relation(fields: [sign_in_id], references: [id])
+
+  // Status
+  status             String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  approved_by        String?   @db.Uuid
+  approved_by_user   User?     @relation("TimeEntryApprovedBy", fields: [approved_by], references: [id])
+  approved_at        DateTime? @db.Timestamptz(6)
+
+  // Audit
+  created_by      String   @db.Uuid
+  created_by_user User     @relation("TimeEntryCreatedBy", fields: [created_by], references: [id])
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @updatedAt @db.Timestamptz(6)
+  updated_by      String?  @db.Uuid
+
+  @@index([employee_id, date])
+  @@index([project_id, date])
+  @@index([date])
+  @@index([status])
+  @@index([created_by])
+  @@index([sign_in_id])
+  @@map("time_entries")
+}
+
+// Time Keeping Module - Weekly Timesheet Summary
+// For approval workflow and weekly reports
+model WeeklyTimesheet {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Employee and week
+  employee_id     String   @db.Uuid
+  employee        Employee @relation(fields: [employee_id], references: [id])
+  week_start_date DateTime @db.Date
+  week_end_date   DateTime @db.Date
+
+  // Totals
+  total_hours    Decimal @db.Decimal(6, 2)
+  regular_hours  Decimal @db.Decimal(6, 2)
+  overtime_hours Decimal @db.Decimal(6, 2)
+
+  // Status
+  status             String    @default("DRAFT") // DRAFT, SUBMITTED, APPROVED, REJECTED
+  submitted_at       DateTime? @db.Timestamptz(6)
+  approved_by        String?   @db.Uuid
+  approved_by_user   User?     @relation(fields: [approved_by], references: [id])
+  approved_at        DateTime? @db.Timestamptz(6)
+
+  // Notes
+  notes String? @db.Text
+
+  // Audit
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([employee_id, week_start_date])
+  @@index([week_start_date])
+  @@index([status])
+  @@index([employee_id])
+  @@index([approved_by])
+  @@map("weekly_timesheets")
+}
+
 // Employee Directory (Module 8)
 model Employee {
   id String @id @default(uuid()) @db.Uuid
@@ -437,6 +589,11 @@ model Employee {
   // Relationships (for future features)
   project_members ProjectMember[]
   daily_logs      DailyLog[]
+
+  // Time tracking relationships
+  sign_ins          DailySignIn[]
+  time_entries      TimeEntry[]
+  weekly_timesheets WeeklyTimesheet[]
 
   // Audit Fields
   is_active  Boolean   @default(true)

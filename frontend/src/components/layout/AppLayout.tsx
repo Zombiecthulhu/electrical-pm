@@ -31,6 +31,9 @@ import {
   Folder,
   Work,
   RequestQuote,
+  AccessTime,
+  Schedule,
+  CheckCircle,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store';
@@ -81,6 +84,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     { text: 'Daily Logs', icon: <Work />, path: '/daily-logs' },
     { text: 'Quotes', icon: <RequestQuote />, path: '/quotes' },
     { text: 'Employees', icon: <People />, path: '/employees' },
+    { text: 'Sign-In Sheet', icon: <AccessTime />, path: '/timekeeping/sign-in' },
+    { text: 'Time Entries', icon: <Schedule />, path: '/timekeeping/time-entries' },
+    { text: 'Time Approval', icon: <CheckCircle />, path: '/timekeeping/approval' },
     { text: 'Users', icon: <People />, path: '/admin/users' },
     { text: 'Settings', icon: <Settings />, path: '/settings' },
   ];

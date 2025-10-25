@@ -57,6 +57,29 @@ export const formatDateTime = (date: string | Date | null | undefined): string =
 };
 
 /**
+ * Format time only (HH:MM AM/PM)
+ */
+export const formatTime = (date: string | Date | null | undefined): string => {
+  if (!date) return 'N/A';
+  
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    
+    if (isNaN(dateObj.getTime())) {
+      return 'Invalid Time';
+    }
+    
+    return dateObj.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch (error) {
+    console.error('Error formatting time:', error);
+    return 'Invalid Time';
+  }
+};
+
+/**
  * Format currency amount
  */
 export const formatCurrency = (amount: number | string | null | undefined): string => {

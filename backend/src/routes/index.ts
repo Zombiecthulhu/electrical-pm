@@ -15,6 +15,9 @@
  * - /api/v1/daily-logs   - Daily logs
  * - /api/v1/quotes       - Quote/bid management
  * - /api/v1/employees    - Employee directory
+ * - /api/v1/sign-ins     - Daily sign-in/sign-out
+ * - /api/v1/time-entries - Project time allocation
+ * - /api/v1/payroll      - Payroll reports and exports
  * 
  * Export pattern:
  * export { authRoutes } from './auth.routes';
@@ -48,6 +51,9 @@ import fileRoutes from './file.routes';
 import dailyLogRoutes from './daily-log.routes';
 import quoteRoutes from './quote.routes';
 import employeeRoutes from './employee.routes';
+import signInRoutes from './signin.routes';
+import timeEntryRoutes from './timeentry.routes';
+import payrollRoutes from './payroll.routes';
 
 // Mount route modules
 router.use('/auth', authRoutes);
@@ -61,6 +67,9 @@ router.use('/files', fileRoutes);
 router.use('/daily-logs', dailyLogRoutes);
 router.use('/quotes', quoteRoutes);
 router.use('/employees', employeeRoutes);
+router.use('/sign-ins', signInRoutes);
+router.use('/time-entries', timeEntryRoutes);
+router.use('/payroll', payrollRoutes);
 
 // Additional route modules will be added here as they are created
 // Example:
