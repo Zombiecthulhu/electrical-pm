@@ -16,8 +16,6 @@ import {
   Menu,
   MenuItem,
   Divider,
-  useTheme,
-  useMediaQuery,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -36,6 +34,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store';
+import { useMobileView, useCompactView } from '../../hooks';
 
 const drawerWidth = 240;
 
@@ -44,8 +43,8 @@ interface AppLayoutProps {
 }
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMobileView(); // < 600px
+  const isCompact = useCompactView(); // < 900px
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
@@ -99,9 +98,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               selected={location.pathname === item.path}
               onClick={() => {
                 navigate(item.path);
-                if (isMobile) {
+                if (isCompact) {
                   setMobileOpen(false);
                 }
+              }}
+              sx={{
+                minHeight: 48, // Touch-friendly height
+                px: 2.5,
               }}
             >
               <ListItemIcon>
@@ -131,26 +134,45 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { md: 'none' } }}
+            sx={{ 
+              mr: 2, 
+              display: { md: 'none' },
+              width: 48, // Touch-friendly
+              height: 48,
+            }}
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Electrical Construction Project Management
+          <Typography 
+            variant={isMobile ? 'body1' : 'h6'} 
+            noWrap 
+            component="div" 
+            sx={{ flexGrow: 1 }}
+          >
+            {isMobile ? 'Electrical PM' : 'Electrical Construction Project Management'}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ mr: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                display: { xs: 'none', sm: 'block' },
+                mr: 1,
+              }}
+            >
               {user?.first_name} {user?.last_name}
             </Typography>
             <IconButton
-              size="large"
               aria-label="account of current user"
               aria-controls="menu-appbar"
               aria-haspopup="true"
               onClick={handleUserMenuOpen}
               color="inherit"
+              sx={{
+                width: 48, // Touch-friendly
+                height: 48,
+              }}
             >
-              <Avatar sx={{ width: 32, height: 32 }}>
+              <Avatar sx={{ width: 36, height: 36 }}>
                 {user?.first_name?.[0]}{user?.last_name?.[0]}
               </Avatar>
             </IconButton>
@@ -220,8 +242,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 2, sm: 3 }, // Less padding on mobile
           width: { md: `calc(100% - ${drawerWidth}px)` },
+          minHeight: '100vh',
+          backgroundColor: 'background.default',
         }}
       >
         <Toolbar />

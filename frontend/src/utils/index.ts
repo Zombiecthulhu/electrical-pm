@@ -28,8 +28,13 @@
 // Export logger utility
 export { logger } from './logger';
 
+// Mobile UI utilities
+export * from './mobile';
+
+// Validation utilities
+export * from './validation';
+
 // Utilities will be exported here as they are created
 // export * from './formatters';
-// export * from './validators';
 // export * from './constants';
 

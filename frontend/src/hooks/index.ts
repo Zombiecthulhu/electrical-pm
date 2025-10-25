@@ -49,6 +49,22 @@ export {
   useFocusTrap,
 } from './useKeyboard';
 
+// Responsive hooks
+export {
+  useMobileView,
+  useTabletView,
+  useDesktopView,
+  useSmallScreen,
+  useCompactView,
+  useBreakpoint,
+  useBreakpointUp,
+  useBreakpointDown,
+  useOrientation,
+  useTouchDevice,
+  useResponsiveValue,
+  useResponsive,
+} from './useResponsive';
+
 // Make this a module
 export {};
 
