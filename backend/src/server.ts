@@ -48,12 +48,32 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Compression middleware
 app.use(compression());
 
-// Request logging middleware
-app.use((req: Request, _res: Response, next: NextFunction) => {
+// Request logging middleware with response time
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const start = Date.now();
+  
   logger.info(`${req.method} ${req.path}`, {
     ip: req.ip,
     userAgent: req.get('user-agent'),
   });
+
+  // Log response time when request finishes
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    logger.info(`${req.method} ${req.path} completed`, {
+      statusCode: res.statusCode,
+      duration: `${duration}ms`,
+    });
+    
+    // Warn if response took longer than 1 second
+    if (duration > 1000) {
+      logger.warn(`Slow request detected: ${req.method} ${req.path}`, {
+        duration: `${duration}ms`,
+        statusCode: res.statusCode,
+      });
+    }
+  });
+
   next();
 });
 

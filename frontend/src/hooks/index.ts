@@ -36,6 +36,19 @@
 // export { useFileUpload } from './useFileUpload';
 // export type { FileUploadState, FileUploadOptions, FileUploadResult } from './useFileUpload';
 
+// Notification hook
+export { useNotification } from './useNotification';
+
+// Keyboard hooks
+export {
+  useKeyboardShortcut,
+  useEscapeKey,
+  useEnterKey,
+  useModalKeyboard,
+  useClickOutside,
+  useFocusTrap,
+} from './useKeyboard';
+
 // Make this a module
 export {};
 

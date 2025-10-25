@@ -7,7 +7,7 @@ backend npx prisma studio
 
 cd "C:\Users\johnj\Desktop\Project Management App\backend"
 npm run dev
-
+taskkill /F /IM node.exe
 cd "C:\Users\johnj\Desktop\Project Management App\frontend"
 npm start
 

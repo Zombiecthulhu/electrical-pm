@@ -1,15 +1,47 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Box, Container, Typography, Button, Alert } from '@mui/material';
+import { Box, CircularProgress, Typography } from '@mui/material';
+import { SnackbarProvider } from 'notistack';
 import { api, ApiResponse } from './services';
 import { useAuthStore, useThemeStore } from './store';
-import { Login, Dashboard, UserManagement, Settings, FileManagement, ClientManagement, ClientDetail, DailyLogManagement, QuoteManagement } from './pages';
-import { ProjectList, ProjectForm, ProjectDetail } from './pages/Projects';
-import { DocumentBrowser } from './pages/Documents';
 import { AppLayout } from './components/layout';
 import { createAppTheme } from './theme/theme';
+
+// Lazy load all page components for code splitting
+const Login = lazy(() => import('./pages/Login'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const UserManagement = lazy(() => import('./pages/UserManagement'));
+const Settings = lazy(() => import('./pages/Settings'));
+const FileManagement = lazy(() => import('./pages/FileManagement'));
+const ClientManagement = lazy(() => import('./pages/ClientManagement'));
+const ClientDetail = lazy(() => import('./pages/ClientDetail'));
+const DailyLogManagement = lazy(() => import('./pages/DailyLogManagement'));
+const QuoteManagement = lazy(() => import('./pages/QuoteManagement'));
+const ProjectList = lazy(() => import('./pages/Projects/ProjectList'));
+const ProjectForm = lazy(() => import('./pages/Projects/ProjectForm'));
+const ProjectDetail = lazy(() => import('./pages/Projects/ProjectDetail'));
+const DocumentBrowser = lazy(() => import('./pages/Documents/DocumentBrowser'));
+
+// Loading Fallback Component
+const LoadingFallback: React.FC = () => (
+  <Box
+    sx={{
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      minHeight: '100vh',
+      gap: 2,
+    }}
+  >
+    <CircularProgress size={60} />
+    <Typography variant="h6" color="text.secondary">
+      Loading...
+    </Typography>
+  </Box>
+);
 
 // Theme Provider Component
 const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -18,7 +50,16 @@ const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children })
 
   return (
     <ThemeProvider theme={theme}>
-      {children}
+      <SnackbarProvider
+        maxSnack={3}
+        anchorOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        autoHideDuration={5000}
+      >
+        {children}
+      </SnackbarProvider>
     </ThemeProvider>
   );
 };
@@ -71,9 +112,10 @@ function App() {
     <AppThemeProvider>
       <CssBaseline />
       <Router>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<Login />} />
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<Login />} />
           
           {/* Protected Routes */}
           <Route 
@@ -255,6 +297,7 @@ function App() {
           {/* Catch all - redirect to login */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
+        </Suspense>
       </Router>
     </AppThemeProvider>
   );

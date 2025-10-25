@@ -106,7 +106,7 @@ const useQuoteStore = create<QuoteState>()(
             loading: false
           });
         } catch (error: any) {
-          const errorMessage = error.response?.data?.error?.message || error.message || 'Failed to fetch quotes';
+          const errorMessage = error?.error?.message || error.message || 'Failed to fetch quotes';
           set({ error: errorMessage, loading: false });
           throw error;
         }
@@ -120,7 +120,7 @@ const useQuoteStore = create<QuoteState>()(
           
           set({ currentQuote: quote, loading: false });
         } catch (error: any) {
-          const errorMessage = error.response?.data?.error?.message || error.message || 'Failed to fetch quote';
+          const errorMessage = error?.error?.message || error.message || 'Failed to fetch quote';
           set({ error: errorMessage, loading: false });
           throw error;
         }
@@ -134,7 +134,7 @@ const useQuoteStore = create<QuoteState>()(
           
           set({ currentQuote: quote, loading: false });
         } catch (error: any) {
-          const errorMessage = error.response?.data?.error?.message || error.message || 'Failed to fetch quote';
+          const errorMessage = error?.error?.message || error.message || 'Failed to fetch quote';
           set({ error: errorMessage, loading: false });
           throw error;
         }
@@ -148,7 +148,7 @@ const useQuoteStore = create<QuoteState>()(
           
           set({ stats, loading: false });
         } catch (error: any) {
-          const errorMessage = error.response?.data?.error?.message || error.message || 'Failed to fetch stats';
+          const errorMessage = error?.error?.message || error.message || 'Failed to fetch stats';
           set({ error: errorMessage, loading: false });
           throw error;
         }
@@ -166,7 +166,7 @@ const useQuoteStore = create<QuoteState>()(
           
           return quote;
         } catch (error: any) {
-          const errorMessage = error.response?.data?.error?.message || error.message || 'Failed to create quote';
+          const errorMessage = error?.error?.message || error.message || 'Failed to create quote';
           set({ error: errorMessage, loading: false });
           throw error;
         }
@@ -185,7 +185,7 @@ const useQuoteStore = create<QuoteState>()(
           
           return quote;
         } catch (error: any) {
-          const errorMessage = error.response?.data?.error?.message || error.message || 'Failed to update quote';
+          const errorMessage = error?.error?.message || error.message || 'Failed to update quote';
           set({ error: errorMessage, loading: false });
           throw error;
         }
@@ -204,7 +204,7 @@ const useQuoteStore = create<QuoteState>()(
           
           return quote;
         } catch (error: any) {
-          const errorMessage = error.response?.data?.error?.message || error.message || 'Failed to update quote status';
+          const errorMessage = error?.error?.message || error.message || 'Failed to update quote status';
           set({ error: errorMessage, loading: false });
           throw error;
         }
@@ -221,7 +221,7 @@ const useQuoteStore = create<QuoteState>()(
           const filteredQuotes = quotes.filter(q => q.id !== id);
           set({ quotes: filteredQuotes, loading: false });
         } catch (error: any) {
-          const errorMessage = error.response?.data?.error?.message || error.message || 'Failed to delete quote';
+          const errorMessage = error?.error?.message || error.message || 'Failed to delete quote';
           set({ error: errorMessage, loading: false });
           throw error;
         }
@@ -239,7 +239,7 @@ const useQuoteStore = create<QuoteState>()(
           
           return quote;
         } catch (error: any) {
-          const errorMessage = error.response?.data?.error?.message || error.message || 'Failed to duplicate quote';
+          const errorMessage = error?.error?.message || error.message || 'Failed to duplicate quote';
           set({ error: errorMessage, loading: false });
           throw error;
         }

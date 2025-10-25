@@ -42,14 +42,18 @@ const QuoteManagement: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string>('');
 
   // Handle view mode changes
-  const handleViewQuote = (quote: Quote) => {
-    setSelectedQuote(quote);
+  const handleViewQuote = async (quote: Quote) => {
     setViewMode('detail');
+    setSelectedQuote(quote);
+    // Fetch fresh data from server
+    await fetchQuoteById(quote.id);
   };
 
-  const handleEditQuote = (quote: Quote) => {
-    setSelectedQuote(quote);
+  const handleEditQuote = async (quote: Quote) => {
     setViewMode('edit');
+    setSelectedQuote(quote);
+    // Fetch fresh data from server
+    await fetchQuoteById(quote.id);
   };
 
   const handleCreateQuote = () => {
@@ -104,11 +108,7 @@ const QuoteManagement: React.FC = () => {
     try {
       await updateQuoteStatus(quote.id, status);
       setSuccessMessage(`Quote status updated to ${status.toLowerCase()}`);
-      // Refresh the current quote if it's the same one
-      if (selectedQuote?.id === quote.id) {
-        await fetchQuoteById(quote.id);
-        setSelectedQuote(currentQuote);
-      }
+      // The useEffect will handle updating selectedQuote when currentQuote changes
     } catch (error) {
       // Error is handled by the store
     }
@@ -118,14 +118,8 @@ const QuoteManagement: React.FC = () => {
     setViewMode('list');
   };
 
-  // Load quote details when in detail/edit mode
-  useEffect(() => {
-    if ((viewMode === 'detail' || viewMode === 'edit') && selectedQuote) {
-      fetchQuoteById(selectedQuote.id);
-    }
-  }, [viewMode, selectedQuote, fetchQuoteById]);
-
-  // Update selected quote when current quote changes
+  // Update selected quote when current quote changes from store
+  // Only when it's a different object reference (e.g., after update)
   useEffect(() => {
     if (currentQuote && (viewMode === 'detail' || viewMode === 'edit')) {
       setSelectedQuote(currentQuote);

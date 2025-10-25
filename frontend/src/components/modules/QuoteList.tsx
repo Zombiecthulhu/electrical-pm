@@ -5,7 +5,7 @@
  * Includes status filtering, client filtering, and pagination.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -99,8 +99,8 @@ const QuoteList: React.FC<QuoteListProps> = ({
     fetchQuotes();
   }, [clients.length, loadClients, fetchQuotes]);
 
-  // Apply filters
-  const applyFilters = () => {
+  // Apply filters - Memoized to prevent recreation
+  const applyFilters = useCallback(() => {
     const newFilters: QuoteFilters = {
       search: searchTerm || undefined,
       status: statusFilter || undefined,
@@ -111,10 +111,10 @@ const QuoteList: React.FC<QuoteListProps> = ({
 
     setFilters(newFilters);
     fetchQuotes(newFilters, { page: 1, limit: pagination.limit });
-  };
+  }, [searchTerm, statusFilter, clientFilter, dateFrom, dateTo, setFilters, fetchQuotes, pagination.limit]);
 
-  // Clear filters
-  const clearFilters = () => {
+  // Clear filters - Memoized to prevent recreation
+  const clearFilters = useCallback(() => {
     setSearchTerm('');
     setStatusFilter('');
     setClientFilter('');
@@ -122,17 +122,17 @@ const QuoteList: React.FC<QuoteListProps> = ({
     setDateTo(null);
     setFilters({});
     fetchQuotes({}, { page: 1, limit: pagination.limit });
-  };
+  }, [setFilters, fetchQuotes, pagination.limit]);
 
-  // Handle search
-  const handleSearch = (event: React.KeyboardEvent) => {
+  // Handle search - Memoized to prevent recreation
+  const handleSearch = useCallback((event: React.KeyboardEvent) => {
     if (event.key === 'Enter') {
       applyFilters();
     }
-  };
+  }, [applyFilters]);
 
-  // Handle pagination
-  const handlePaginationModelChange = (model: any) => {
+  // Handle pagination - Memoized to prevent recreation
+  const handlePaginationModelChange = useCallback((model: any) => {
     const newFilters = {
       search: searchTerm || undefined,
       status: statusFilter || undefined,
@@ -142,10 +142,10 @@ const QuoteList: React.FC<QuoteListProps> = ({
     };
 
     fetchQuotes(newFilters, { page: model.page + 1, limit: model.pageSize });
-  };
+  }, [searchTerm, statusFilter, clientFilter, dateFrom, dateTo, fetchQuotes]);
 
-  // Handle delete
-  const handleDelete = async () => {
+  // Handle delete - Memoized to prevent recreation
+  const handleDelete = useCallback(async () => {
     if (deleteDialog.quote) {
       try {
         await deleteQuote(deleteDialog.quote.id);
@@ -154,20 +154,21 @@ const QuoteList: React.FC<QuoteListProps> = ({
         // Error is handled by the store
       }
     }
-  };
+  }, [deleteDialog.quote, deleteQuote]);
 
-  // Handle duplicate
-  const handleDuplicate = async (quote: Quote) => {
+  // Handle duplicate - Memoized to prevent recreation
+  const handleDuplicate = useCallback(async (quote: Quote) => {
     try {
       const projectName = `${quote.project_name} (Copy)`;
       await duplicateQuote(quote.id, projectName);
     } catch (error) {
       // Error is handled by the store
     }
-  };
+  }, [duplicateQuote]);
 
   // Define columns
-  const columns: GridColDef[] = [
+  // Memoize columns to prevent recreation on every render
+  const columns: GridColDef[] = useMemo(() => [
     {
       field: 'quote_number',
       headerName: 'Quote #',
@@ -273,7 +274,7 @@ const QuoteList: React.FC<QuoteListProps> = ({
         />
       ]
     }
-  ];
+  ], [onViewQuote, onEditQuote]); // Include dependencies for actions
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>

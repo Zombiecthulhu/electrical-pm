@@ -294,11 +294,14 @@ class QuoteService {
   /**
    * Format currency
    */
-  formatCurrency(amount: number): string {
+  formatCurrency(amount: number | string | any): string {
+    // Handle edge cases - convert to number if it's not already
+    const numericAmount = typeof amount === 'number' ? amount : Number(amount) || 0;
+    
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
-    }).format(amount);
+    }).format(numericAmount);
   }
 
   /**

@@ -5,7 +5,7 @@
  * Includes status updates, editing, and duplication capabilities.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -68,6 +68,79 @@ const QuoteDetail: React.FC<QuoteDetailProps> = ({
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [duplicateDialog, setDuplicateDialog] = useState(false);
   const [newProjectName, setNewProjectName] = useState(`${quote.project_name} (Copy)`);
+
+  // Debug logging in development (only on mount/update)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('QuoteDetail - Raw quote data:', quote);
+      console.log('QuoteDetail - Subtotal type:', typeof quote.subtotal, quote.subtotal);
+      console.log('QuoteDetail - Tax type:', typeof quote.tax, quote.tax);
+      console.log('QuoteDetail - Total type:', typeof quote.total, quote.total);
+      if (quote.line_items && quote.line_items.length > 0) {
+        console.log('QuoteDetail - First line item:', quote.line_items[0]);
+      }
+    }
+  }, [quote.id]); // Only log when quote ID changes
+
+  // Validate quote data
+  if (!quote) {
+    return (
+      <Alert severity="error">
+        Quote data is not available.
+      </Alert>
+    );
+  }
+
+  // Check for required nested objects
+  if (!quote.client) {
+    console.error('Quote missing client:', quote);
+    return (
+      <Alert severity="error">
+        Quote is missing client information.
+      </Alert>
+    );
+  }
+
+  if (!quote.creator) {
+    console.error('Quote missing creator:', quote);
+    return (
+      <Alert severity="error">
+        Quote is missing creator information.
+      </Alert>
+    );
+  }
+
+  // Validate client has required fields
+  if (typeof quote.client.name !== 'string' || typeof quote.client.type !== 'string') {
+    console.error('Client data invalid:', quote.client);
+    return (
+      <Alert severity="error">
+        Client data is malformed. Name: {typeof quote.client.name}, Type: {typeof quote.client.type}
+      </Alert>
+    );
+  }
+
+  // Validate creator has required fields
+  if (typeof quote.creator.first_name !== 'string' || typeof quote.creator.last_name !== 'string') {
+    console.error('Creator data invalid:', quote.creator);
+    return (
+      <Alert severity="error">
+        Creator data is malformed. First: {typeof quote.creator.first_name}, Last: {typeof quote.creator.last_name}
+      </Alert>
+    );
+  }
+
+  if (!Array.isArray(quote.line_items)) {
+    console.error('Quote line items invalid:', { 
+      lineItemsType: typeof quote.line_items,
+      lineItems: quote.line_items 
+    });
+    return (
+      <Alert severity="error">
+        Quote line items are invalid (not an array).
+      </Alert>
+    );
+  }
 
   const handleStatusChange = (newStatus: QuoteStatus) => {
     onStatusChange(quote, newStatus);
@@ -330,21 +403,21 @@ const QuoteDetail: React.FC<QuoteDetailProps> = ({
           </Card>
         </Box>
 
-        {/* Notes */}
-        {quote.notes && (
-          <Box mt={3}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Notes
-                </Typography>
-                <Typography variant="body2" style={{ whiteSpace: 'pre-wrap' }}>
-                  {quote.notes}
+      {/* Notes */}
+      {quote.notes && (
+        <Box mt={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Notes
+              </Typography>
+              <Typography variant="body2" style={{ whiteSpace: 'pre-wrap' }}>
+                {quote.notes}
               </Typography>
             </CardContent>
           </Card>
         </Box>
-        )}
+      )}
 
       {/* Status Change Dialog */}
       <Dialog open={statusDialog} onClose={() => setStatusDialog(false)}>

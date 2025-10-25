@@ -11,6 +11,33 @@ import { ApiError } from '../utils/response';
 
 const prisma = new PrismaClient();
 
+/**
+ * Transform Prisma quote data to ensure Decimals are converted to numbers
+ * This prevents [object Object] errors in the frontend
+ */
+function transformQuoteData(quote: any): any {
+  if (!quote) return quote;
+  
+  // Transform line items to ensure all numeric values are numbers
+  let transformedLineItems = quote.line_items;
+  if (Array.isArray(quote.line_items)) {
+    transformedLineItems = quote.line_items.map((item: any) => ({
+      ...item,
+      quantity: Number(item.quantity),
+      unit_price: Number(item.unit_price),
+      total: Number(item.total)
+    }));
+  }
+  
+  return {
+    ...quote,
+    subtotal: Number(quote.subtotal || 0),
+    tax: quote.tax != null ? Number(quote.tax) : null,
+    total: Number(quote.total || 0),
+    line_items: transformedLineItems
+  };
+}
+
 // Quote with relations
 export type QuoteWithRelations = Quote & {
   client: {
@@ -263,7 +290,7 @@ export async function createQuote(
       createdBy
     });
     
-    return quote as QuoteWithRelations;
+    return transformQuoteData(quote) as QuoteWithRelations;
   } catch (error) {
     logger.error('Failed to create quote', { error, data, createdBy });
     if (error instanceof ApiError) {
@@ -305,7 +332,7 @@ export async function getQuoteById(quoteId: string): Promise<QuoteWithRelations 
       }
     });
     
-    return quote;
+    return quote ? transformQuoteData(quote) : null;
   } catch (error) {
     logger.error('Failed to get quote by ID', { error, quoteId });
     throw new ApiError('Failed to retrieve quote', 500);
@@ -344,7 +371,7 @@ export async function getQuoteByNumber(quoteNumber: string): Promise<QuoteWithRe
       }
     });
     
-    return quote;
+    return quote ? transformQuoteData(quote) : null;
   } catch (error) {
     logger.error('Failed to get quote by number', { error, quoteNumber });
     throw new ApiError('Failed to retrieve quote', 500);
@@ -432,7 +459,7 @@ export async function listQuotes(
     const totalPages = Math.ceil(total / limit);
     
     return {
-      quotes,
+      quotes: quotes.map(transformQuoteData),
       pagination: {
         page,
         limit,
@@ -517,7 +544,7 @@ export async function updateQuote(
       updatedBy
     });
     
-    return quote;
+    return transformQuoteData(quote);
   } catch (error) {
     logger.error('Failed to update quote', { error, quoteId, data, updatedBy });
     if (error instanceof ApiError) {
@@ -574,7 +601,7 @@ export async function updateQuoteStatus(
       updatedBy
     });
     
-    return quote;
+    return transformQuoteData(quote);
   } catch (error) {
     logger.error('Failed to update quote status', { error, quoteId, status, updatedBy });
     throw new ApiError('Failed to update quote status', 500);
@@ -726,7 +753,7 @@ export async function duplicateQuote(
       createdBy
     });
     
-    return newQuote;
+    return transformQuoteData(newQuote);
   } catch (error) {
     logger.error('Failed to duplicate quote', { error, quoteId, createdBy });
     if (error instanceof ApiError) {
