@@ -9,7 +9,7 @@ import {
   removeMember,
   getProjectMembers,
   ProjectFilters,
-  PaginationOptions,
+  ProjectPaginationOptions,
   CreateProjectData,
   UpdateProjectData
 } from '../services/project.service';
@@ -51,7 +51,7 @@ export const getProjects = async (req: AuthRequest, res: Response): Promise<void
     if (budgetMax) filters.budgetMax = parseFloat(budgetMax as string);
 
     // Build pagination object
-    const pagination: PaginationOptions = {};
+    const pagination: ProjectPaginationOptions = {};
     if (page) pagination.page = parseInt(page as string);
     if (limit) pagination.limit = parseInt(limit as string);
 

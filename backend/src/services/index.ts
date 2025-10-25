@@ -41,6 +41,9 @@ export * from './daily-log.service';
 // Quote Service
 export * from './quote.service';
 
+// Employee Service - Import directly to avoid PaginationOptions conflict
+// export * from './employee.service';
+
 // File Service
 export * from './file.service';
 

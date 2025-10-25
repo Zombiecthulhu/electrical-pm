@@ -1,22 +1,39 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 
-// Initialize Prisma Client
+// Initialize Prisma Client with connection pooling
 const prisma = new PrismaClient({
   log:
     process.env.NODE_ENV === 'development'
       ? ['query', 'error', 'warn']
       : ['error'],
+  // Connection pool settings to prevent timeouts
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
 });
 
-// Test database connection
-export const connectDatabase = async (): Promise<void> => {
-  try {
-    await prisma.$connect();
-    logger.info('Database connected successfully');
-  } catch (error) {
-    logger.error('Database connection failed:', error);
-    process.exit(1);
+// Test database connection with retry logic
+export const connectDatabase = async (retries = 5, delay = 3000): Promise<void> => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await prisma.$connect();
+      await prisma.$queryRaw`SELECT 1`; // Test query
+      logger.info('Database connected successfully');
+      return;
+    } catch (error) {
+      logger.error(`Database connection attempt ${attempt}/${retries} failed:`, error);
+      
+      if (attempt < retries) {
+        logger.info(`Retrying in ${delay / 1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        logger.error('Database connection failed after all retries');
+        throw new Error('Failed to connect to database after multiple attempts');
+      }
+    }
   }
 };
 
@@ -26,16 +43,7 @@ export const disconnectDatabase = async (): Promise<void> => {
   logger.info('Database disconnected');
 };
 
-// Handle shutdown
-process.on('SIGINT', async () => {
-  await disconnectDatabase();
-  process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-  await disconnectDatabase();
-  process.exit(0);
-});
+// Note: Shutdown handlers moved to server.ts for centralized management
 
 export default prisma;
 

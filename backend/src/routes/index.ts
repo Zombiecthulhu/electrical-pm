@@ -14,6 +14,7 @@
  * - /api/v1/photos       - Photo management
  * - /api/v1/daily-logs   - Daily logs
  * - /api/v1/quotes       - Quote/bid management
+ * - /api/v1/employees    - Employee directory
  * 
  * Export pattern:
  * export { authRoutes } from './auth.routes';
@@ -46,6 +47,7 @@ import clientProjectRoutes from './client-project.routes';
 import fileRoutes from './file.routes';
 import dailyLogRoutes from './daily-log.routes';
 import quoteRoutes from './quote.routes';
+import employeeRoutes from './employee.routes';
 
 // Mount route modules
 router.use('/auth', authRoutes);
@@ -58,6 +60,7 @@ router.use('/clients', clientProjectRoutes);
 router.use('/files', fileRoutes);
 router.use('/daily-logs', dailyLogRoutes);
 router.use('/quotes', quoteRoutes);
+router.use('/employees', employeeRoutes);
 
 // Additional route modules will be added here as they are created
 // Example:

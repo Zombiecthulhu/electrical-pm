@@ -36,6 +36,7 @@ model User {
   daily_logs       DailyLog[]
   created_quotes   Quote[]         @relation("CreatedQuotes")
   updated_quotes   Quote[]         @relation("UpdatedQuotes")
+  employee         Employee?       @relation("EmployeeUser")
 
   @@index([email])
   @@index([role])
@@ -129,7 +130,7 @@ model Project {
   contact_id         String?       @db.Uuid
   status             ProjectStatus @default(QUOTED)
   type               ProjectType
-  billing_type       BillingType @default(TIME_AND_MATERIALS)
+  billing_type       BillingType   @default(TIME_AND_MATERIALS)
   location           String?
   address            String?
   latitude           Float?
@@ -209,8 +210,10 @@ model ProjectMember {
   assigned_at DateTime @default(now()) @db.Timestamptz(6)
 
   // Relations
-  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  project    Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  Employee   Employee? @relation(fields: [employeeId], references: [id])
+  employeeId String?   @db.Uuid
 
   @@unique([project_id, user_id])
   @@index([project_id])
@@ -254,24 +257,24 @@ model File {
   parent_file_id    String?      @db.Uuid
   tags              String[]
   description       String?
-  
+
   // Photo-specific fields
-  thumbnail_path    String?
-  width             Int?
-  height            Int?
-  exif_data         Json?
-  
+  thumbnail_path String?
+  width          Int?
+  height         Int?
+  exif_data      Json?
+
   // Document-specific fields
-  page_count        Int?
-  
+  page_count Int?
+
   // Organization fields
-  folder_path       String?
-  is_favorite       Boolean      @default(false)
-  
+  folder_path String?
+  is_favorite Boolean @default(false)
+
   // Metadata
-  created_at        DateTime     @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime     @updatedAt @db.Timestamptz(6)
-  deleted_at        DateTime?    @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @updatedAt @db.Timestamptz(6)
+  deleted_at DateTime? @db.Timestamptz(6)
 
   // Relations
   project     Project?  @relation(fields: [project_id], references: [id])
@@ -326,9 +329,11 @@ model DailyLog {
   updated_at      DateTime @updatedAt @db.Timestamptz(6)
 
   // Relations
-  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  creator User    @relation(fields: [created_by], references: [id])
-  files   File[]
+  project    Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  creator    User      @relation(fields: [created_by], references: [id])
+  files      File[]
+  Employee   Employee? @relation(fields: [employeeId], references: [id])
+  employeeId String?   @db.Uuid
 
   @@index([project_id])
   @@index([date])
@@ -381,4 +386,76 @@ enum QuoteStatus {
   PENDING
   ACCEPTED
   REJECTED
+}
+
+// Employee Directory (Module 8)
+model Employee {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Current Required Fields (Phase 1 - MVP)
+  first_name     String
+  last_name      String
+  classification String // Job role: Electrician, Foreman, Apprentice, Office Staff, etc.
+
+  // User Relationship (Optional - links to auth system if employee has login)
+  user_id String? @unique @db.Uuid
+  user    User?   @relation("EmployeeUser", fields: [user_id], references: [id])
+
+  // Future Fields - Contact Information (Phase 2)
+  email        String?
+  phone        String?
+  mobile_phone String?
+  address      String?
+  city         String?
+  state        String?
+  zip_code     String?
+
+  // Future Fields - Personal Information (Phase 2)
+  date_of_birth DateTime? @db.Date
+
+  // Future Fields - Employment Information (Phase 2)
+  hire_date         DateTime? @db.Date
+  termination_date  DateTime? @db.Date
+  employment_status String?   @default("ACTIVE") // Active, Inactive, On Leave, Terminated
+  employee_number   String?   @unique
+
+  // Future Fields - Organizational (Phase 2)
+  department    String?
+  supervisor_id String? @db.Uuid
+
+  // Future Fields - Compensation (Phase 3 - Sensitive Data)
+  hourly_rate Decimal? @db.Decimal(10, 2)
+  salary      Decimal? @db.Decimal(12, 2)
+
+  // Future Fields - Complex Data (Phase 3)
+  emergency_contact Json? // {name, relationship, phone, email}
+  certifications    Json? // [{name, number, expiryDate, issuer, documentUrl}]
+
+  // Notes
+  notes String? @db.Text
+
+  // Relationships (for future features)
+  project_members ProjectMember[]
+  daily_logs      DailyLog[]
+
+  // Audit Fields
+  is_active  Boolean   @default(true)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @updatedAt @db.Timestamptz(6)
+  created_by String    @db.Uuid
+  updated_by String    @db.Uuid
+  deleted_at DateTime? @db.Timestamptz(6)
+
+  @@index([last_name, first_name])
+  @@index([classification])
+  @@index([employment_status])
+  @@index([is_active])
+  @@index([deleted_at])
+  @@index([user_id])
+  @@index([employee_number])
+  @@index([created_at])
+  // Composite indexes for common queries
+  @@index([is_active, classification]) // Active employees by role
+  @@index([employment_status, hire_date]) // Employment status reports
+  @@map("employees")
 }

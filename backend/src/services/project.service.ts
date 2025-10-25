@@ -16,7 +16,7 @@ export interface ProjectFilters {
   budgetMax?: number;
 }
 
-export interface PaginationOptions {
+export interface ProjectPaginationOptions {
   page?: number;
   limit?: number;
 }
@@ -113,7 +113,7 @@ export interface ProjectListResponse {
  */
 export const getAllProjects = async (
   filters: ProjectFilters = {},
-  pagination: PaginationOptions = {}
+  pagination: ProjectPaginationOptions = {}
 ): Promise<ProjectListResponse> => {
   try {
     const {
