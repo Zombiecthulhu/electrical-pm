@@ -32,12 +32,11 @@ import {
   Work,
   RequestQuote,
   AccessTime,
-  Schedule,
-  CheckCircle,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store';
-import { useMobileView, useCompactView } from '../../hooks';
+import { useMobileView, useCompactView, usePermissions } from '../../hooks';
+import { Feature } from '../../utils/permissions';
 import { MobileBottomNav } from './MobileBottomNav';
 
 const drawerWidth = 240;
@@ -52,6 +51,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
+  const { canAccess } = usePermissions();
   
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -74,22 +74,24 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     handleUserMenuClose();
   };
 
-  const menuItems = [
-    { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
-    { text: 'Projects', icon: <Assignment />, path: '/projects' },
-    { text: 'Files', icon: <Folder />, path: '/files' },
-    { text: 'Clients', icon: <Business />, path: '/clients' },
-    { text: 'Documents', icon: <Description />, path: '/documents' },
-    { text: 'Photos', icon: <PhotoCamera />, path: '/photos' },
-    { text: 'Daily Logs', icon: <Work />, path: '/daily-logs' },
-    { text: 'Quotes', icon: <RequestQuote />, path: '/quotes' },
-    { text: 'Employees', icon: <People />, path: '/employees' },
-    { text: 'Sign-In Sheet', icon: <AccessTime />, path: '/timekeeping/sign-in' },
-    { text: 'Time Entries', icon: <Schedule />, path: '/timekeeping/time-entries' },
-    { text: 'Time Approval', icon: <CheckCircle />, path: '/timekeeping/approval' },
-    { text: 'Users', icon: <People />, path: '/admin/users' },
-    { text: 'Settings', icon: <Settings />, path: '/settings' },
+  // All menu items with their associated feature permissions
+  const allMenuItems = [
+    { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard', feature: 'dashboard' as Feature },
+    { text: 'Projects', icon: <Assignment />, path: '/projects', feature: 'projects' as Feature },
+    { text: 'Files', icon: <Folder />, path: '/files', feature: 'files' as Feature },
+    { text: 'Clients', icon: <Business />, path: '/clients', feature: 'clients' as Feature },
+    { text: 'Documents', icon: <Description />, path: '/documents', feature: 'documents' as Feature },
+    { text: 'Photos', icon: <PhotoCamera />, path: '/photos', feature: 'photos' as Feature },
+    { text: 'Daily Logs', icon: <Work />, path: '/daily-logs', feature: 'daily-logs' as Feature },
+    { text: 'Quotes', icon: <RequestQuote />, path: '/quotes', feature: 'quotes' as Feature },
+    { text: 'Employees', icon: <People />, path: '/employees', feature: 'employees' as Feature },
+    { text: 'Time Keeping', icon: <AccessTime />, path: '/timekeeping', feature: 'timekeeping' as Feature },
+    { text: 'Users', icon: <People />, path: '/admin/users', feature: 'users' as Feature },
+    { text: 'Settings', icon: <Settings />, path: '/settings', feature: 'settings' as Feature },
   ];
+
+  // Filter menu items based on user permissions
+  const menuItems = allMenuItems.filter(item => canAccess(item.feature));
 
   const drawer = (
     <Box>

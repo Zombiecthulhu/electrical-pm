@@ -37,6 +37,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore, useThemeStore } from '../store';
 import { useTheme } from '@mui/material/styles';
+import { getActiveSignIns } from '../services/signin.service';
+import { quoteService } from '../services';
+import { getAllProjects } from '../services/project.service';
 
 interface ModuleCardProps {
   icon: React.ReactNode;
@@ -216,36 +219,42 @@ const Dashboard: React.FC = () => {
   const theme = useTheme();
   const [loading, setLoading] = useState(true);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [stats, setStats] = useState({
+    totalProjects: 0,
+    activeProjects: 0,
+    pendingQuotes: 0,
+    signedInEmployees: 0,
+  });
 
-  // Mock data - in real app, this would come from API
-  const stats = [
+  // Real stats data for display
+  const statsCards = [
     {
       title: 'Total Projects',
-      value: 24,
+      value: stats.totalProjects,
       icon: <Assignment />,
       color: theme.palette.primary.main,
-      trend: '+12% this month',
+      trend: undefined,
     },
     {
       title: 'Active Projects',
-      value: 8,
+      value: stats.activeProjects,
       icon: <TrendingUp />,
       color: theme.palette.primary.main,
-      trend: '+2 this week',
+      trend: undefined,
     },
     {
       title: 'Pending Quotes',
-      value: 5,
+      value: stats.pendingQuotes,
       icon: <Pending />,
       color: theme.palette.primary.main,
-      trend: '3 due today',
+      trend: undefined,
     },
     {
-      title: 'Total Revenue',
-      value: '$125,430',
-      icon: <AttachMoney />,
+      title: 'Signed In Employees',
+      value: stats.signedInEmployees,
+      icon: <People />,
       color: theme.palette.primary.main,
-      trend: '+8.5% vs last month',
+      trend: undefined,
     },
   ];
 
@@ -360,13 +369,39 @@ const Dashboard: React.FC = () => {
   ];
 
   useEffect(() => {
-    // Simulate loading data
-    const timer = setTimeout(() => {
-      setRecentActivity(mockRecentActivity);
-      setLoading(false);
-    }, 1500);
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch all data in parallel
+        const [projectsData, quoteStats, activeSignIns] = await Promise.all([
+          getAllProjects({ status: undefined }, { page: 1, limit: 1 }),
+          quoteService.getQuoteStats(),
+          getActiveSignIns(),
+        ]);
 
-    return () => clearTimeout(timer);
+        // Calculate active projects
+        const activeProjectsData = await getAllProjects(
+          { status: 'IN_PROGRESS' }, 
+          { page: 1, limit: 1 }
+        );
+
+        setStats({
+          totalProjects: projectsData.data.pagination.total,
+          activeProjects: activeProjectsData.data.pagination.total,
+          pendingQuotes: quoteStats.pending_quotes,
+          signedInEmployees: activeSignIns.length,
+        });
+
+        setRecentActivity(mockRecentActivity);
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
   }, []);
 
   const getActivityIcon = (type: string) => {
@@ -421,7 +456,7 @@ const Dashboard: React.FC = () => {
             gap: 3,
           }}
         >
-          {stats.map((stat, index) => (
+          {statsCards.map((stat, index) => (
             <StatCard
               key={index}
               title={stat.title}

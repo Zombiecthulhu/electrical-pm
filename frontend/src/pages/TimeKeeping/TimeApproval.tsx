@@ -25,7 +25,7 @@ import { MobileListView, MobileListItem } from '../../components/common';
 
 const TimeApproval: React.FC = () => {
   const isMobile = useMobileView();
-  const { showSuccess, showError } = useNotification();
+  const { success: showSuccess, error: showError } = useNotification();
 
   const {
     unapprovedEntries,
@@ -53,7 +53,7 @@ const TimeApproval: React.FC = () => {
   const handleApprove = async (entry: any) => {
     try {
       await approveTimeEntry(entry.id);
-      showSuccess(`Time entry approved for ${entry.employee.firstName} ${entry.employee.lastName}`);
+      showSuccess(`Time entry approved for ${entry.employee?.firstName || 'Unknown'} ${entry.employee?.lastName || 'Employee'}`);
       fetchUnapprovedEntries();
     } catch (error: any) {
       showError(error?.message || 'Failed to approve time entry');
@@ -74,7 +74,7 @@ const TimeApproval: React.FC = () => {
 
     try {
       await rejectTimeEntry(selectedEntry.id, rejectReason);
-      showSuccess(`Time entry rejected for ${selectedEntry.employee.firstName} ${selectedEntry.employee.lastName}`);
+      showSuccess(`Time entry rejected for ${selectedEntry.employee?.firstName || 'Unknown'} ${selectedEntry.employee?.lastName || 'Employee'}`);
       setRejectDialogOpen(false);
       setSelectedEntry(null);
       setRejectReason('');
@@ -96,14 +96,14 @@ const TimeApproval: React.FC = () => {
       headerName: 'Employee',
       flex: 1,
       minWidth: 150,
-      valueGetter: (value, row) => `${row.employee.firstName} ${row.employee.lastName}`,
+      valueGetter: (value, row) => `${row.employee?.firstName || 'Unknown'} ${row.employee?.lastName || 'Employee'}`,
     },
     {
       field: 'project',
       headerName: 'Project',
       flex: 1,
       minWidth: 150,
-      valueGetter: (value, row) => row.project.name,
+      valueGetter: (value, row) => row.project?.name || 'Unknown Project',
     },
     {
       field: 'hoursWorked',
@@ -151,10 +151,10 @@ const TimeApproval: React.FC = () => {
     },
   ];
 
-  const mobileListItems: MobileListItem[] = unapprovedEntries.map((entry) => ({
+  const mobileListItems: MobileListItem[] = (unapprovedEntries || []).map((entry) => ({
     id: entry.id,
-    title: `${entry.employee.firstName} ${entry.employee.lastName}`,
-    subtitle: entry.project.name,
+    title: `${entry.employee?.firstName || 'Unknown'} ${entry.employee?.lastName || 'Employee'}`,
+    subtitle: entry.project?.name || 'Unknown Project',
     description: entry.taskPerformed || entry.description || 'No description',
     metadata: [
       { label: 'Date', value: formatDate(entry.date) },
@@ -254,10 +254,10 @@ const TimeApproval: React.FC = () => {
           {selectedEntry && (
             <Box>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                Employee: {selectedEntry.employee.firstName} {selectedEntry.employee.lastName}
+                Employee: {selectedEntry.employee?.firstName || 'Unknown'} {selectedEntry.employee?.lastName || 'Employee'}
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                Project: {selectedEntry.project.name}
+                Project: {selectedEntry.project?.name || 'Unknown Project'}
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
                 Hours: {selectedEntry.hoursWorked} hrs

@@ -54,6 +54,7 @@ import employeeRoutes from './employee.routes';
 import signInRoutes from './signin.routes';
 import timeEntryRoutes from './timeentry.routes';
 import payrollRoutes from './payroll.routes';
+import timesheetRoutes from './timesheet.routes';
 
 // Mount route modules
 router.use('/auth', authRoutes);
@@ -70,6 +71,7 @@ router.use('/employees', employeeRoutes);
 router.use('/sign-ins', signInRoutes);
 router.use('/time-entries', timeEntryRoutes);
 router.use('/payroll', payrollRoutes);
+router.use('/timesheets', timesheetRoutes);
 
 // Additional route modules will be added here as they are created
 // Example:

@@ -111,7 +111,7 @@ export const usePayrollStore = create<PayrollState>((set, get) => ({
       await payrollService.downloadWeeklyCSV(startDate, endDate);
       set({ isLoading: false });
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.error||message || error?.message || 'Failed to download weekly CSV';
+      const errorMessage = error?.response?.data?.error?.message || error?.message || 'Failed to download weekly CSV';
       set({ error: errorMessage, isLoading: false });
       throw error;
     }

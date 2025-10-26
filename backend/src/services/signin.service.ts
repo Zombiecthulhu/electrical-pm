@@ -21,6 +21,49 @@ interface SignInFilters {
 }
 
 /**
+ * Transform snake_case Prisma response to camelCase for frontend
+ */
+function transformSignInData(signIn: any): any {
+  if (!signIn) return null;
+  
+  return {
+    id: signIn.id,
+    employeeId: signIn.employee_id,
+    employee: signIn.employee ? {
+      id: signIn.employee.id,
+      firstName: signIn.employee.first_name,
+      lastName: signIn.employee.last_name,
+      classification: signIn.employee.classification,
+    } : undefined,
+    date: signIn.date,
+    signInTime: signIn.sign_in_time,
+    signOutTime: signIn.sign_out_time,
+    location: signIn.location,
+    projectId: signIn.project_id,
+    project: signIn.project ? {
+      id: signIn.project.id,
+      name: signIn.project.name,
+      projectNumber: signIn.project.project_number,
+    } : undefined,
+    notes: signIn.notes,
+    signedInBy: signIn.signed_in_by,
+    signedInByUser: signIn.signed_in_by_user ? {
+      id: signIn.signed_in_by_user.id,
+      firstName: signIn.signed_in_by_user.first_name,
+      lastName: signIn.signed_in_by_user.last_name,
+    } : undefined,
+    signedOutBy: signIn.signed_out_by,
+    signedOutByUser: signIn.signed_out_by_user ? {
+      id: signIn.signed_out_by_user.id,
+      firstName: signIn.signed_out_by_user.first_name,
+      lastName: signIn.signed_out_by_user.last_name,
+    } : undefined,
+    createdAt: signIn.created_at,
+    updatedAt: signIn.updated_at,
+  };
+}
+
+/**
  * Get all sign-ins for a specific date with optional filters
  */
 export const getSignInsForDate = async (date: Date, filters?: SignInFilters) => {
@@ -75,7 +118,7 @@ export const getSignInsForDate = async (date: Date, filters?: SignInFilters) => 
       },
     });
 
-    return signIns;
+    return signIns.map(transformSignInData);
   } catch (error) {
     logger.error('Error getting sign-ins for date', { date, filters, error });
     throw error;
@@ -97,18 +140,17 @@ export const getTodaySignIns = async () => {
  */
 export const signIn = async (data: SignInData, signedInBy: string) => {
   try {
-    // Check if employee is already signed in for this date
-    const existing = await prisma.dailySignIn.findUnique({
+    // Check if employee has an ACTIVE sign-in (not signed out yet)
+    const activeSignIn = await prisma.dailySignIn.findFirst({
       where: {
-        employee_id_date: {
-          employee_id: data.employeeId,
-          date: data.date,
-        },
+        employee_id: data.employeeId,
+        date: data.date,
+        sign_out_time: null, // Only check for active sign-ins
       },
     });
 
-    if (existing) {
-      throw new Error('Employee is already signed in for this date');
+    if (activeSignIn) {
+      throw new Error('Employee is already signed in and has not signed out yet');
     }
 
     const signIn = await prisma.dailySignIn.create({
@@ -154,7 +196,7 @@ export const signIn = async (data: SignInData, signedInBy: string) => {
       signedInBy,
     });
 
-    return signIn;
+    return transformSignInData(signIn);
   } catch (error) {
     logger.error('Error signing in employee', { data, signedInBy, error });
     throw error;
@@ -227,7 +269,7 @@ export const signOut = async (
       signedOutBy,
     });
 
-    return updatedSignIn;
+    return transformSignInData(updatedSignIn);
   } catch (error) {
     logger.error('Error signing out employee', { signInId, signedOutBy, error });
     throw error;
@@ -246,28 +288,29 @@ export const bulkSignIn = async (
   projectId?: string
 ) => {
   try {
-    // Check for existing sign-ins
-    const existingSignIns = await prisma.dailySignIn.findMany({
+    // Check for ACTIVE sign-ins only (not signed out yet)
+    const activeSignIns = await prisma.dailySignIn.findMany({
       where: {
         employee_id: { in: employeeIds },
         date: date,
+        sign_out_time: null, // Only check for active sign-ins
       },
       select: {
         employee_id: true,
       },
     });
 
-    const existingEmployeeIds = existingSignIns.map((s) => s.employee_id);
-    const newEmployeeIds = employeeIds.filter(
-      (id) => !existingEmployeeIds.includes(id)
+    const alreadySignedInIds = activeSignIns.map((s) => s.employee_id);
+    const canSignInIds = employeeIds.filter(
+      (id) => !alreadySignedInIds.includes(id)
     );
 
-    if (newEmployeeIds.length === 0) {
-      throw new Error('All selected employees are already signed in for this date');
+    if (canSignInIds.length === 0) {
+      throw new Error('All selected employees are already signed in and have not signed out yet');
     }
 
-    // Create sign-ins for employees not already signed in
-    const signInData = newEmployeeIds.map((employeeId) => ({
+    // Create sign-ins for employees who can sign in
+    const signInData = canSignInIds.map((employeeId) => ({
       employee_id: employeeId,
       date: date,
       sign_in_time: signInTime,
@@ -283,8 +326,9 @@ export const bulkSignIn = async (
     // Fetch the created sign-ins with relations
     const createdSignIns = await prisma.dailySignIn.findMany({
       where: {
-        employee_id: { in: newEmployeeIds },
+        employee_id: { in: canSignInIds },
         date: date,
+        sign_in_time: signInTime, // Use exact timestamp to get only the newly created ones
       },
       include: {
         employee: {
@@ -313,14 +357,14 @@ export const bulkSignIn = async (
     });
 
     logger.info('Bulk sign-in successful', {
-      employeeCount: newEmployeeIds.length,
+      employeeCount: canSignInIds.length,
       date,
       signedInBy,
     });
 
     return {
-      signedIn: createdSignIns,
-      alreadySignedIn: existingEmployeeIds,
+      signedIn: createdSignIns.map(transformSignInData),
+      alreadySignedIn: alreadySignedInIds,
     };
   } catch (error) {
     logger.error('Error in bulk sign-in', { employeeIds, date, signedInBy, error });
@@ -373,7 +417,7 @@ export const getEmployeeSignInHistory = async (
       },
     });
 
-    return signIns;
+    return signIns.map(transformSignInData);
   } catch (error) {
     logger.error('Error getting employee sign-in history', {
       employeeId,
@@ -390,16 +434,16 @@ export const getEmployeeSignInHistory = async (
  */
 export const isEmployeeSignedIn = async (employeeId: string, date: Date) => {
   try {
-    const signIn = await prisma.dailySignIn.findUnique({
+    // Check if employee has an active sign-in (not signed out yet)
+    const activeSignIn = await prisma.dailySignIn.findFirst({
       where: {
-        employee_id_date: {
-          employee_id: employeeId,
-          date: date,
-        },
+        employee_id: employeeId,
+        date: date,
+        sign_out_time: null, // Only check for active sign-ins
       },
     });
 
-    return signIn !== null;
+    return activeSignIn !== null;
   } catch (error) {
     logger.error('Error checking if employee is signed in', {
       employeeId,
@@ -448,7 +492,7 @@ export const getActiveSignIns = async () => {
       },
     });
 
-    return activeSignIns;
+    return activeSignIns.map(transformSignInData);
   } catch (error) {
     logger.error('Error getting active sign-ins', { error });
     throw error;

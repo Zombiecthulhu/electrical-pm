@@ -16,7 +16,7 @@ import {
  * Get today's sign-ins
  */
 export const getTodaySignIns = async (): Promise<DailySignIn[]> => {
-  const response = await api.get<SignInsResponse>('/sign-ins/today');
+  const response = await api.get('/sign-ins/today') as SignInsResponse;
   return response.data;
 };
 
@@ -31,7 +31,7 @@ export const getSignInsForDate = async (
   if (filters?.employeeId) params.append('employeeId', filters.employeeId);
   if (filters?.projectId) params.append('projectId', filters.projectId);
 
-  const response = await api.get<SignInsResponse>(`/sign-ins/date?${params.toString()}`);
+  const response = await api.get(`/sign-ins/date?${params.toString()}`) as SignInsResponse;
   return response.data;
 };
 
@@ -39,7 +39,7 @@ export const getSignInsForDate = async (
  * Get active sign-ins (not signed out yet)
  */
 export const getActiveSignIns = async (): Promise<DailySignIn[]> => {
-  const response = await api.get<SignInsResponse>('/sign-ins/active');
+  const response = await api.get('/sign-ins/active') as SignInsResponse;
   return response.data;
 };
 
@@ -51,9 +51,9 @@ export const getEmployeeHistory = async (
   startDate: string,
   endDate: string
 ): Promise<DailySignIn[]> => {
-  const response = await api.get<SignInsResponse>(
+  const response = await api.get(
     `/sign-ins/employee/${employeeId}/history?startDate=${startDate}&endDate=${endDate}`
-  );
+  ) as SignInsResponse;
   return response.data;
 };
 
@@ -61,7 +61,7 @@ export const getEmployeeHistory = async (
  * Sign in a single employee
  */
 export const signIn = async (data: Omit<SignInFormData, 'employeeIds'> & { employeeId: string }): Promise<DailySignIn> => {
-  const response = await api.post<SignInResponse>('/sign-ins', data);
+  const response = await api.post('/sign-ins', data) as SignInResponse;
   return response.data;
 };
 
@@ -69,7 +69,7 @@ export const signIn = async (data: Omit<SignInFormData, 'employeeIds'> & { emplo
  * Bulk sign in multiple employees
  */
 export const bulkSignIn = async (data: SignInFormData): Promise<BulkSignInResult> => {
-  const response = await api.post<{ success: boolean; data: BulkSignInResult }>('/sign-ins/bulk', data);
+  const response = await api.post('/sign-ins/bulk', data) as { success: boolean; data: BulkSignInResult };
   return response.data;
 };
 
@@ -77,9 +77,9 @@ export const bulkSignIn = async (data: SignInFormData): Promise<BulkSignInResult
  * Sign out an employee
  */
 export const signOut = async (signInId: string, signOutTime: string): Promise<DailySignIn> => {
-  const response = await api.put<SignInResponse>(`/sign-ins/${signInId}/sign-out`, {
+  const response = await api.put(`/sign-ins/${signInId}/sign-out`, {
     signOutTime,
-  });
+  }) as SignInResponse;
   return response.data;
 };
 

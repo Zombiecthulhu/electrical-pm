@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -11,7 +11,6 @@ import {
   ListItemAvatar,
   Avatar,
   Chip,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -39,12 +38,12 @@ import { useSignInStore } from '../../store/signin.store';
 import { useEmployeeStore } from '../../store/employee.store';
 import { useProjectStore } from '../../store/project.store';
 import { useNotification } from '../../hooks/useNotification';
-import { formatDate, formatTime } from '../../utils/formatters';
+import { formatTime } from '../../utils/formatters';
 import { useMobileView } from '../../hooks/useResponsive';
 
 const SignInSheet: React.FC = () => {
   const isMobile = useMobileView();
-  const { showSuccess, showError } = useNotification();
+  const { success: showSuccess, error: showError } = useNotification();
 
   // Store state
   const {
@@ -171,15 +170,39 @@ const SignInSheet: React.FC = () => {
 
   // Get employee initials
   const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`;
+    if (!firstName || !lastName) return '??';
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
   // Filter active employees
-  const activeEmployees = employees.filter((e) => e.isActive);
+  const activeEmployees = (employees || []).filter((e) => e.isActive);
+
+  // Group sign-ins by employee
+  const groupedSignIns = useMemo(() => {
+    const groups = new Map();
+    
+    (signIns || []).forEach((signIn) => {
+      const employeeId = signIn.employeeId;
+      if (!groups.has(employeeId)) {
+        groups.set(employeeId, {
+          employee: signIn.employee,
+          entries: [],
+          hasActiveEntry: false,
+        });
+      }
+      const group = groups.get(employeeId);
+      group.entries.push(signIn);
+      if (!signIn.signOutTime) {
+        group.hasActiveEntry = true;
+      }
+    });
+    
+    return Array.from(groups.values());
+  }, [signIns]);
 
   // Signed in count
-  const signedInCount = signIns.length;
-  const activeCount = activeSignIns.length;
+  const signedInCount = (signIns || []).length;
+  const activeCount = (activeSignIns || []).length;
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -287,94 +310,117 @@ const SignInSheet: React.FC = () => {
               </Box>
             ) : (
               <List>
-                {signIns.map((signIn, index) => (
-                  <React.Fragment key={signIn.id}>
-                    {index > 0 && <Divider />}
-                    <ListItem
-                      secondaryAction={
-                        !signIn.signOutTime && (
-                          <Button
-                            variant="contained"
-                            color="error"
-                            size={isMobile ? 'large' : 'medium'}
-                            startIcon={<LogoutIcon />}
-                            onClick={() => handleOpenSignOutDialog(signIn)}
-                            sx={{ minHeight: { xs: 48, sm: 36 } }}
-                          >
-                            Sign Out
-                          </Button>
-                        )
-                      }
-                      sx={{ py: 2 }}
-                    >
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: 'primary.main' }}>
-                          {getInitials(
-                            signIn.employee.firstName,
-                            signIn.employee.lastName
-                          )}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                            <Typography variant="subtitle1">
-                              {signIn.employee.firstName} {signIn.employee.lastName}
-                            </Typography>
-                            {signIn.signOutTime ? (
-                              <Chip
-                                label="Signed Out"
-                                size="small"
-                                color="default"
-                              />
-                            ) : (
-                              <Chip
-                                label="Active"
-                                size="small"
-                                color="success"
-                              />
-                            )}
-                          </Box>
+                {groupedSignIns.map((group, index) => {
+                  // Find the most recent active entry for sign-out button
+                  const activeEntry = group.entries.find((e: any) => !e.signOutTime);
+                  
+                  return (
+                    <React.Fragment key={group.employee?.id || index}>
+                      {index > 0 && <Divider />}
+                      <ListItem
+                        secondaryAction={
+                          activeEntry && (
+                            <Button
+                              variant="contained"
+                              color="error"
+                              size={isMobile ? 'large' : 'medium'}
+                              startIcon={<LogoutIcon />}
+                              onClick={() => handleOpenSignOutDialog(activeEntry)}
+                              sx={{ minHeight: { xs: 48, sm: 36 } }}
+                            >
+                              Sign Out
+                            </Button>
+                          )
                         }
-                        secondary={
-                          <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-                            <Typography variant="body2" color="text.secondary">
-                              {signIn.employee.classification}
-                            </Typography>
+                        sx={{ py: 2, alignItems: 'flex-start' }}
+                      >
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: 'primary.main' }}>
+                            {getInitials(
+                              group.employee?.firstName || '',
+                              group.employee?.lastName || ''
+                            )}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <AccessTime fontSize="small" />
-                                <Typography variant="body2">
-                                  In: {formatTime(signIn.signInTime)}
-                                </Typography>
-                              </Box>
-                              {signIn.signOutTime && (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                  <AccessTime fontSize="small" />
-                                  <Typography variant="body2">
-                                    Out: {formatTime(signIn.signOutTime)}
-                                  </Typography>
-                                </Box>
+                              <Typography variant="subtitle1">
+                                {group.employee?.firstName || 'Unknown'} {group.employee?.lastName || 'Employee'}
+                              </Typography>
+                              {group.hasActiveEntry ? (
+                                <Chip
+                                  label="Active"
+                                  size="small"
+                                  color="success"
+                                />
+                              ) : (
+                                <Chip
+                                  label="Signed Out"
+                                  size="small"
+                                  color="default"
+                                />
+                              )}
+                              {group.entries.length > 1 && (
+                                <Chip
+                                  label={`${group.entries.length} entries`}
+                                  size="small"
+                                  variant="outlined"
+                                />
                               )}
                             </Box>
-                            {signIn.location && (
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <LocationOn fontSize="small" />
-                                <Typography variant="body2">{signIn.location}</Typography>
-                              </Box>
-                            )}
-                            {signIn.project && (
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <Business fontSize="small" />
-                                <Typography variant="body2">{signIn.project.name}</Typography>
-                              </Box>
-                            )}
-                          </Stack>
-                        }
-                      />
-                    </ListItem>
-                  </React.Fragment>
-                ))}
+                          }
+                          secondaryTypographyProps={{ component: 'div' }}
+                          secondary={
+                            <Stack spacing={1} sx={{ mt: 0.5 }}>
+                              <Typography variant="body2" color="text.secondary">
+                                {group.employee?.classification || 'N/A'}
+                              </Typography>
+                              
+                              {/* Show all time entries */}
+                              {group.entries.map((signIn: any, entryIdx: number) => (
+                                <Box key={signIn.id} sx={{ 
+                                  pl: entryIdx > 0 ? 2 : 0,
+                                  borderLeft: entryIdx > 0 ? '2px solid' : 'none',
+                                  borderColor: 'divider',
+                                }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                      <AccessTime fontSize="small" />
+                                      <Typography variant="body2">
+                                        In: {formatTime(signIn.signInTime)}
+                                      </Typography>
+                                    </Box>
+                                    {signIn.signOutTime && (
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <AccessTime fontSize="small" />
+                                        <Typography variant="body2">
+                                          Out: {formatTime(signIn.signOutTime)}
+                                        </Typography>
+                                      </Box>
+                                    )}
+                                  </Box>
+                                  {signIn.location && (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                                      <LocationOn fontSize="small" />
+                                      <Typography variant="body2">{signIn.location}</Typography>
+                                    </Box>
+                                  )}
+                                  {signIn.project && (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                                      <Business fontSize="small" />
+                                      <Typography variant="body2">{signIn.project.name}</Typography>
+                                    </Box>
+                                  )}
+                                </Box>
+                              ))}
+                            </Stack>
+                          }
+                        />
+                      </ListItem>
+                    </React.Fragment>
+                  );
+                })}
               </List>
             )}
           </CardContent>

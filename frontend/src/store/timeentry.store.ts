@@ -44,11 +44,10 @@ export const useTimeEntryStore = create<TimeEntryState>((set, get) => ({
     set({ isLoading: true, error: null, selectedDate: date });
     try {
       const timeEntries = await timeEntryService.getTimeEntriesForDate(date, filters);
-      set({ timeEntries, isLoading: false });
+      set({ timeEntries: timeEntries || [], isLoading: false });
     } catch (error: any) {
       const errorMessage = error?.response?.data?.error?.message || error?.message || 'Failed to fetch time entries';
-      set({ error: errorMessage, isLoading: false });
-      throw error;
+      set({ error: errorMessage, isLoading: false, timeEntries: [] });
     }
   },
 
@@ -61,11 +60,10 @@ export const useTimeEntryStore = create<TimeEntryState>((set, get) => ({
         startDate,
         endDate
       );
-      set({ timeEntries, isLoading: false });
+      set({ timeEntries: timeEntries || [], isLoading: false });
     } catch (error: any) {
       const errorMessage = error?.response?.data?.error?.message || error?.message || 'Failed to fetch employee time entries';
-      set({ error: errorMessage, isLoading: false });
-      throw error;
+      set({ error: errorMessage, isLoading: false, timeEntries: [] });
     }
   },
 
@@ -74,11 +72,10 @@ export const useTimeEntryStore = create<TimeEntryState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const unapprovedEntries = await timeEntryService.getUnapprovedEntries();
-      set({ unapprovedEntries, isLoading: false });
+      set({ unapprovedEntries: unapprovedEntries || [], isLoading: false });
     } catch (error: any) {
       const errorMessage = error?.response?.data?.error?.message || error?.message || 'Failed to fetch unapproved entries';
-      set({ error: errorMessage, isLoading: false });
-      throw error;
+      set({ error: errorMessage, isLoading: false, unapprovedEntries: [] });
     }
   },
 

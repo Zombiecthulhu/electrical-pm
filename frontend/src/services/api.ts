@@ -10,7 +10,7 @@ import { logger } from '../utils/logger';
 
 // Create configured axios instance
 const api: AxiosInstance = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1',
+  baseURL: 'http://localhost:5000/api/v1', // Hardcoded to localhost to avoid CORS issues
   withCredentials: true, // Enable HTTP-only cookies for refresh tokens
   timeout: 10000, // 10 second timeout
   headers: {
@@ -60,11 +60,12 @@ api.interceptors.response.use(
     if (process.env.NODE_ENV === 'development') {
       logger.info(`API Response: ${response.status} ${response.config.url}`, {
         status: response.status,
-        data: response.data,
+        data: response.config.responseType === 'blob' ? '[Blob data]' : response.data,
       });
     }
 
-    // Return the response data directly (remove axios wrapper)
+    // For blob responses, return the data directly (it's already a Blob)
+    // For other responses, return the response data (remove axios wrapper)
     return response.data;
   },
   (error: AxiosError) => {

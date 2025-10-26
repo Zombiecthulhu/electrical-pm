@@ -15,6 +15,7 @@ import {
   Typography,
   Box,
   LinearProgress,
+  CircularProgress,
 } from '@mui/material';
 import {
   Warning as WarningIcon,
@@ -23,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import { isTokenExpired, getTokenTimeRemaining, formatTimeRemaining } from '../../utils/token';
 import { useAuthStore } from '../../store';
+import { refreshToken as refreshAuthToken } from '../../services/auth.service';
 
 interface SessionTimeoutProps {
   // Warn when session has this many minutes left (default: 5)
@@ -39,6 +41,7 @@ export const SessionTimeout: React.FC<SessionTimeoutProps> = ({
   const [showWarning, setShowWarning] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [hasShownWarning, setHasShownWarning] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     // Only run if user is logged in
@@ -85,14 +88,27 @@ export const SessionTimeout: React.FC<SessionTimeoutProps> = ({
     return () => clearInterval(intervalId);
   }, [user, warningMinutes, checkInterval, hasShownWarning, logout]);
 
-  const handleExtendSession = () => {
-    // In a real app, you would refresh the token here
-    // For now, just close the dialog
-    setShowWarning(false);
-    setHasShownWarning(false);
-    
-    // TODO: Implement token refresh
-    console.log('Session extended - implement token refresh logic');
+  const handleExtendSession = async () => {
+    setIsRefreshing(true);
+    try {
+      // Call the refresh token endpoint
+      const { accessToken } = await refreshAuthToken();
+      
+      // Update token in localStorage
+      localStorage.setItem('accessToken', accessToken);
+      
+      // Close dialog and reset warning state
+      setShowWarning(false);
+      setHasShownWarning(false);
+      
+      console.log('Session extended successfully');
+    } catch (error) {
+      console.error('Failed to extend session:', error);
+      // If refresh fails, log the user out
+      logout();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleLogout = () => {
@@ -157,10 +173,11 @@ export const SessionTimeout: React.FC<SessionTimeoutProps> = ({
         <Button
           onClick={handleExtendSession}
           variant="contained"
-          startIcon={<RefreshIcon />}
+          startIcon={isRefreshing ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
+          disabled={isRefreshing}
           autoFocus
         >
-          Stay Logged In
+          {isRefreshing ? 'Refreshing...' : 'Stay Logged In'}
         </Button>
       </DialogActions>
     </Dialog>

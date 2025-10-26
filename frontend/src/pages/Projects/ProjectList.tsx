@@ -143,6 +143,8 @@ const ProjectList: React.FC = () => {
   // Local state
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [billingTypeFilter, setBillingTypeFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -154,10 +156,12 @@ const ProjectList: React.FC = () => {
     const currentFilters: ProjectFilters = {
       search: searchTerm || undefined,
       status: statusFilter || undefined,
+      billingType: billingTypeFilter || undefined,
+      type: typeFilter || undefined,
     };
     
     fetchProjects(currentFilters, { page: page + 1, limit: pageSize });
-  }, [searchTerm, statusFilter, page, pageSize]); // Removed fetchProjects from dependencies
+  }, [searchTerm, statusFilter, billingTypeFilter, typeFilter, page, pageSize]); // Removed fetchProjects from dependencies
 
   // Handle search
   const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -168,6 +172,18 @@ const ProjectList: React.FC = () => {
   // Handle status filter
   const handleStatusFilterChange = useCallback((event: SelectChangeEvent<string>) => {
     setStatusFilter(event.target.value);
+    setPage(0); // Reset to first page when filtering
+  }, []);
+
+  // Handle billing type filter
+  const handleBillingTypeFilterChange = useCallback((event: SelectChangeEvent<string>) => {
+    setBillingTypeFilter(event.target.value);
+    setPage(0); // Reset to first page when filtering
+  }, []);
+
+  // Handle type filter
+  const handleTypeFilterChange = useCallback((event: SelectChangeEvent<string>) => {
+    setTypeFilter(event.target.value);
     setPage(0); // Reset to first page when filtering
   }, []);
 
@@ -234,6 +250,8 @@ const ProjectList: React.FC = () => {
   const handleClearFilters = useCallback(() => {
     setSearchTerm('');
     setStatusFilter('');
+    setBillingTypeFilter('');
+    setTypeFilter('');
     setPage(0);
   }, []);
 
@@ -276,27 +294,33 @@ const ProjectList: React.FC = () => {
   // Define columns
   const columns: GridColDef[] = [
     {
+      field: 'projectNumber',
+      headerName: 'Job #',
+      width: 100,
+      renderCell: (params: GridRenderCellParams) => (
+        <Typography 
+          variant="h6" 
+          fontWeight="bold" 
+          color="primary"
+          sx={{ 
+            fontSize: '1rem',
+          }}
+        >
+          #{params.value}
+        </Typography>
+      ),
+    },
+    {
       field: 'name',
       headerName: 'Project Name',
       flex: 1,
-      minWidth: 250,
+      minWidth: 220,
       renderCell: (params: GridRenderCellParams) => (
         <Box>
-          <Typography variant="h6" fontWeight="bold" color="primary" sx={{ mb: 0.5 }}>
+          <Typography variant="body1" fontWeight="600" color="text.primary" sx={{ mb: 0.5 }}>
             {params.value}
           </Typography>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ 
-            fontWeight: 'bold',
-            backgroundColor: 'action.hover',
-            px: 1,
-            py: 0.5,
-            borderRadius: 1,
-            display: 'inline-block',
-            fontSize: '0.75rem'
-          }}>
-            #{params.row.projectNumber}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
             {getBillingTypeLabel(params.row.billingType)} • {params.row.type}
           </Typography>
         </Box>
@@ -490,10 +514,48 @@ const ProjectList: React.FC = () => {
             </Select>
           </FormControl>
 
+          <FormControl 
+            size="small" 
+            fullWidth={isMobile}
+            sx={{ minWidth: isMobile ? '100%' : 140 }}
+          >
+            <InputLabel>Billing Type</InputLabel>
+            <Select
+              value={billingTypeFilter}
+              onChange={handleBillingTypeFilterChange}
+              label="Billing Type"
+            >
+              <MenuItem value="">All Types</MenuItem>
+              <MenuItem value="TIME_AND_MATERIALS">T&M</MenuItem>
+              <MenuItem value="LUMP_SUM">Lump Sum</MenuItem>
+              <MenuItem value="SERVICE_CALL">Service Call</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl 
+            size="small" 
+            fullWidth={isMobile}
+            sx={{ minWidth: isMobile ? '100%' : 140 }}
+          >
+            <InputLabel>Project Type</InputLabel>
+            <Select
+              value={typeFilter}
+              onChange={handleTypeFilterChange}
+              label="Project Type"
+            >
+              <MenuItem value="">All Types</MenuItem>
+              <MenuItem value="Commercial">Commercial</MenuItem>
+              <MenuItem value="Residential">Residential</MenuItem>
+              <MenuItem value="Industrial">Industrial</MenuItem>
+              <MenuItem value="Municipal">Municipal</MenuItem>
+              <MenuItem value="Service">Service</MenuItem>
+            </Select>
+          </FormControl>
+
           <Button
             variant="outlined"
             onClick={handleClearFilters}
-            disabled={!searchTerm && !statusFilter}
+            disabled={!searchTerm && !statusFilter && !billingTypeFilter && !typeFilter}
             fullWidth={isMobile}
             sx={{ minHeight: 44 }}
           >

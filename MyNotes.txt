@@ -3,15 +3,26 @@ Material-UI Grid API - The grid componentapi has changed in newer versions
 Take out CORS being more permissive for mobile before producton
 
 ***************************************************
-backend npx prisma studio
+RECOMMENDED: Use the PowerShell scripts to prevent zombie processes:
+  .\start-servers.ps1     - Start both servers (cleans ports first)
+  .\stop-servers.ps1      - Stop both servers cleanly
+  .\restart-servers.ps1   - Restart both servers
 
-cd "C:\Users\johnj\Desktop\Project Management App\backend"
-npm run dev
-taskkill /F /IM node.exe
-cd "C:\Users\johnj\Desktop\Project Management App\frontend"
-npm start
+MANUAL START (if needed):
+  cd "C:\Users\johnj\Desktop\Project Management App\backend"
+  npm run dev
+  
+  cd "C:\Users\johnj\Desktop\Project Management App\frontend"
+  npm start
 
+EMERGENCY CLEANUP (if servers won't start):
+  taskkill /F /IM node.exe
 
-Backend: Will run on http://localhost:5000
-Frontend: Will run on http://localhost:3000 and automatically open in your browser
-Prisma Studio: Will run on http://localhost:5555 and open in your browser
+DATABASE MANAGEMENT:
+  cd "C:\Users\johnj\Desktop\Project Management App\backend"
+  npx prisma studio
+
+URLs:
+  Backend:  http://localhost:5000
+  Frontend: http://localhost:3000
+  Prisma:   http://localhost:5555

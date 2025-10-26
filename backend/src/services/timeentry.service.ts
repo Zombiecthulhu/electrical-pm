@@ -28,6 +28,57 @@ interface TimeEntryFilters {
 }
 
 /**
+ * Transform snake_case Prisma response to camelCase for frontend
+ */
+function transformTimeEntryData(entry: any): any {
+  if (!entry) return null;
+  
+  return {
+    id: entry.id,
+    employeeId: entry.employee_id,
+    employee: entry.employee ? {
+      id: entry.employee.id,
+      firstName: entry.employee.first_name,
+      lastName: entry.employee.last_name,
+      classification: entry.employee.classification,
+    } : undefined,
+    date: entry.date,
+    projectId: entry.project_id,
+    project: entry.project ? {
+      id: entry.project.id,
+      name: entry.project.name,
+      projectNumber: entry.project.project_number,
+    } : undefined,
+    hoursWorked: Number(entry.hours_worked),
+    workType: entry.work_type,
+    description: entry.description,
+    taskPerformed: entry.task_performed,
+    startTime: entry.start_time,
+    endTime: entry.end_time,
+    hourlyRate: entry.hourly_rate ? Number(entry.hourly_rate) : undefined,
+    totalCost: entry.total_cost ? Number(entry.total_cost) : undefined,
+    status: entry.status,
+    signInId: entry.sign_in_id,
+    createdBy: entry.created_by,
+    createdByUser: entry.created_by_user ? {
+      id: entry.created_by_user.id,
+      firstName: entry.created_by_user.first_name,
+      lastName: entry.created_by_user.last_name,
+    } : undefined,
+    approvedBy: entry.approved_by,
+    approvedByUser: entry.approved_by_user ? {
+      id: entry.approved_by_user.id,
+      firstName: entry.approved_by_user.first_name,
+      lastName: entry.approved_by_user.last_name,
+    } : undefined,
+    rejectedBy: entry.rejected_by,
+    rejectionReason: entry.rejection_reason,
+    createdAt: entry.created_at,
+    updatedAt: entry.updated_at,
+  };
+}
+
+/**
  * Get all time entries for a specific date with optional filters
  */
 export const getTimeEntriesForDate = async (
@@ -89,7 +140,7 @@ export const getTimeEntriesForDate = async (
       },
     });
 
-    return timeEntries;
+    return timeEntries.map(transformTimeEntryData);
   } catch (error) {
     logger.error('Error getting time entries for date', { date, filters, error });
     throw error;
@@ -141,7 +192,7 @@ export const getTimeEntriesForEmployee = async (
       },
     });
 
-    return timeEntries;
+    return timeEntries.map(transformTimeEntryData);
   } catch (error) {
     logger.error('Error getting time entries for employee', {
       employeeId,
@@ -200,7 +251,7 @@ export const getTimeEntriesForProject = async (
       },
     });
 
-    return timeEntries;
+    return timeEntries.map(transformTimeEntryData);
   } catch (error) {
     logger.error('Error getting time entries for project', {
       projectId,
@@ -280,7 +331,7 @@ export const create = async (data: TimeEntryData, createdBy: string) => {
       createdBy,
     });
 
-    return timeEntry;
+    return transformTimeEntryData(timeEntry);
   } catch (error) {
     logger.error('Error creating time entry', { data, createdBy, error });
     throw error;
@@ -390,7 +441,7 @@ export const update = async (
       updatedBy,
     });
 
-    return timeEntry;
+    return transformTimeEntryData(timeEntry);
   } catch (error) {
     logger.error('Error updating time entry', { id, data, updatedBy, error });
     throw error;
@@ -423,6 +474,11 @@ export const bulkCreate = async (
   createdBy: string
 ) => {
   try {
+    // Validate we have entries
+    if (entries.length === 0) {
+      throw new Error('No entries provided for bulk creation');
+    }
+
     // Validate all entries
     for (const entry of entries) {
       if (entry.hoursWorked <= 0 || entry.hoursWorked > 24) {
@@ -462,7 +518,7 @@ export const bulkCreate = async (
 
     // Fetch the created entries
     const employeeIds = entries.map((e) => e.employeeId);
-    const date = entries[0].date; // Assuming all entries are for the same date
+    const date = entries[0]!.date; // Safe to access after length check above (non-null assertion)
 
     const createdEntries = await prisma.timeEntry.findMany({
       where: {
@@ -504,7 +560,7 @@ export const bulkCreate = async (
       createdBy,
     });
 
-    return createdEntries;
+    return createdEntries.map(transformTimeEntryData);
   } catch (error) {
     logger.error('Error creating bulk time entries', { entries, createdBy, error });
     throw error;
@@ -598,7 +654,7 @@ export const autoCreateFromSignIn = async (
       hoursWorked: roundedHours,
     });
 
-    return timeEntry;
+    return transformTimeEntryData(timeEntry);
   } catch (error) {
     logger.error('Error auto-creating time entry from sign-in', {
       signInId,
@@ -660,7 +716,7 @@ export const approve = async (id: string, approvedBy: string) => {
       approvedBy,
     });
 
-    return timeEntry;
+    return transformTimeEntryData(timeEntry);
   } catch (error) {
     logger.error('Error approving time entry', { id, approvedBy, error });
     throw error;
@@ -719,7 +775,7 @@ export const reject = async (id: string, approvedBy: string, reason: string) => 
       reason,
     });
 
-    return timeEntry;
+    return transformTimeEntryData(timeEntry);
   } catch (error) {
     logger.error('Error rejecting time entry', { id, approvedBy, reason, error });
     throw error;
@@ -764,7 +820,7 @@ export const getUnapprovedEntries = async () => {
       },
     });
 
-    return unapprovedEntries;
+    return unapprovedEntries.map(transformTimeEntryData);
   } catch (error) {
     logger.error('Error getting unapproved entries', { error });
     throw error;

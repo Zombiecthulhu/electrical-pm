@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 export interface ProjectFilters {
   status?: ProjectStatus;
   type?: ProjectType;
+  billingType?: string;
   clientId?: string;
   createdBy?: string;
   search?: string;
@@ -119,6 +120,7 @@ export const getAllProjects = async (
     const {
       status,
       type,
+      billingType,
       clientId,
       createdBy,
       search,
@@ -138,6 +140,7 @@ export const getAllProjects = async (
 
     if (status) where.status = status;
     if (type) where.type = type;
+    if (billingType) where.billing_type = billingType;
     if (clientId) where.client_id = clientId;
     if (createdBy) where.created_by = createdBy;
 

@@ -103,6 +103,7 @@ export interface ProjectMember {
 export interface ProjectFilters {
   status?: string;
   type?: string;
+  billingType?: string;
   clientId?: string;
   search?: string;
   startDateFrom?: string;

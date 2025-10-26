@@ -49,6 +49,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProjectStore } from '../../store';
 import { Project, ProjectMember } from '../../services/project.service';
+import { useNotification } from '../../hooks';
 
 // Status color mapping
 const getStatusColor = (status: string) => {
@@ -134,12 +135,14 @@ function TabPanel(props: TabPanelProps) {
 const ProjectDetail: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { success: showSuccess, error: showError } = useNotification();
   
   // Store state
   const selectedProject = useProjectStore((state) => state.selectedProject);
   const isLoading = useProjectStore((state) => state.isLoading);
   const error = useProjectStore((state) => state.error);
   const fetchProject = useProjectStore((state) => state.fetchProject);
+  const updateProject = useProjectStore((state) => state.updateProject);
   const deleteProject = useProjectStore((state) => state.deleteProject);
   const clearError = useProjectStore((state) => state.clearError);
 
@@ -240,9 +243,24 @@ const ProjectDetail: React.FC = () => {
 
   // Handle status change
   const handleStatusChange = async () => {
-    // TODO: Implement status change API call
-    console.log('Changing status to:', newStatus);
-    setStatusChangeDialogOpen(false);
+    if (!selectedProject || !newStatus) return;
+    
+    try {
+      const updatedProject = await updateProject(selectedProject.id, {
+        status: newStatus as any,
+      });
+      
+      if (updatedProject) {
+        showSuccess('Project status updated successfully');
+        setStatusChangeDialogOpen(false);
+        setNewStatus('');
+      } else {
+        showError('Failed to update project status');
+      }
+    } catch (error) {
+      console.error('Failed to update project status:', error);
+      showError('Failed to update project status');
+    }
   };
 
   // Handle back navigation
@@ -334,7 +352,10 @@ const ProjectDetail: React.FC = () => {
       <Box mb={3}>
         <Button
           variant="contained"
-          onClick={() => setStatusChangeDialogOpen(true)}
+          onClick={() => {
+            setNewStatus(selectedProject?.status || '');
+            setStatusChangeDialogOpen(true);
+          }}
           sx={{ mb: 2 }}
         >
           Change Status

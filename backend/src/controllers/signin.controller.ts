@@ -12,13 +12,13 @@ import { logger } from '../utils/logger';
  * Get today's sign-ins
  * GET /api/v1/sign-ins/today
  */
-export const getTodaySignIns = async (req: Request, res: Response) => {
+export const getTodaySignIns = async (_req: Request, res: Response) => {
   try {
     const signIns = await signInService.getTodaySignIns();
-    sendSuccess(res, signIns, 'Today\'s sign-ins retrieved successfully');
+    return sendSuccess(res, signIns, 'Today\'s sign-ins retrieved successfully');
   } catch (error: any) {
     logger.error('Error in getTodaySignIns controller', { error });
-    sendError(res, error.message);
+    return sendError(res, 'FETCH_ERROR', error.message || 'Failed to fetch sign-ins');
   }
 };
 
@@ -31,12 +31,12 @@ export const getSignInsForDate = async (req: Request, res: Response) => {
     const { date, employeeId, projectId } = req.query;
 
     if (!date) {
-      return sendError(res, 'Date parameter is required', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'Date parameter is required', 400);
     }
 
     const dateObj = new Date(date as string);
     if (isNaN(dateObj.getTime())) {
-      return sendError(res, 'Invalid date format', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'Invalid date format', 400);
     }
 
     const filters: any = {};
@@ -44,10 +44,10 @@ export const getSignInsForDate = async (req: Request, res: Response) => {
     if (projectId) filters.projectId = projectId as string;
 
     const signIns = await signInService.getSignInsForDate(dateObj, filters);
-    sendSuccess(res, signIns, 'Sign-ins retrieved successfully');
+    return sendSuccess(res, signIns, 'Sign-ins retrieved successfully');
   } catch (error: any) {
     logger.error('Error in getSignInsForDate controller', { error });
-    sendError(res, error.message);
+    return sendError(res, 'FETCH_ERROR', error.message || 'Failed to fetch sign-ins');
   }
 };
 
@@ -55,13 +55,13 @@ export const getSignInsForDate = async (req: Request, res: Response) => {
  * Get active sign-ins (not signed out yet)
  * GET /api/v1/sign-ins/active
  */
-export const getActiveSignIns = async (req: Request, res: Response) => {
+export const getActiveSignIns = async (_req: Request, res: Response) => {
   try {
     const signIns = await signInService.getActiveSignIns();
-    sendSuccess(res, signIns, 'Active sign-ins retrieved successfully');
+    return sendSuccess(res, signIns, 'Active sign-ins retrieved successfully');
   } catch (error: any) {
     logger.error('Error in getActiveSignIns controller', { error });
-    sendError(res, error.message);
+    return sendError(res, 'FETCH_ERROR', error.message || 'Failed to fetch active sign-ins');
   }
 };
 
@@ -74,15 +74,19 @@ export const getEmployeeHistory = async (req: Request, res: Response) => {
     const { employeeId } = req.params;
     const { startDate, endDate } = req.query;
 
+    if (!employeeId) {
+      return sendError(res, 'VALIDATION_ERROR', 'employeeId parameter is required', 400);
+    }
+
     if (!startDate || !endDate) {
-      return sendError(res, 'startDate and endDate parameters are required', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'startDate and endDate parameters are required', 400);
     }
 
     const startDateObj = new Date(startDate as string);
     const endDateObj = new Date(endDate as string);
 
     if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
-      return sendError(res, 'Invalid date format', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'Invalid date format', 400);
     }
 
     const history = await signInService.getEmployeeSignInHistory(
@@ -90,10 +94,10 @@ export const getEmployeeHistory = async (req: Request, res: Response) => {
       startDateObj,
       endDateObj
     );
-    sendSuccess(res, history, 'Employee sign-in history retrieved successfully');
+    return sendSuccess(res, history, 'Employee sign-in history retrieved successfully');
   } catch (error: any) {
     logger.error('Error in getEmployeeHistory controller', { error });
-    sendError(res, error.message);
+    return sendError(res, 'FETCH_ERROR', error.message || 'Failed to fetch employee history');
   }
 };
 
@@ -105,22 +109,22 @@ export const getEmployeeHistory = async (req: Request, res: Response) => {
 export const signIn = async (req: Request, res: Response) => {
   try {
     const { employeeId, date, signInTime, location, projectId, notes } = req.body;
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
 
     // Validation
     if (!employeeId || !date || !signInTime) {
-      return sendError(res, 'employeeId, date, and signInTime are required', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'employeeId, date, and signInTime are required', 400);
     }
 
     if (!userId) {
-      return sendError(res, 'User not authenticated', 401);
+      return sendError(res, 'AUTH_ERROR', 'User not authenticated', 401);
     }
 
     const dateObj = new Date(date);
     const signInTimeObj = new Date(signInTime);
 
     if (isNaN(dateObj.getTime()) || isNaN(signInTimeObj.getTime())) {
-      return sendError(res, 'Invalid date format', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'Invalid date format', 400);
     }
 
     const signInData = {
@@ -133,15 +137,15 @@ export const signIn = async (req: Request, res: Response) => {
     };
 
     const signInRecord = await signInService.signIn(signInData, userId);
-    sendSuccess(res, signInRecord, 'Employee signed in successfully', 201);
+    return sendSuccess(res, signInRecord, 'Employee signed in successfully', 201);
   } catch (error: any) {
     logger.error('Error in signIn controller', { error });
     
     if (error.message.includes('already signed in')) {
-      return sendError(res, error.message, 409);
+      return sendError(res, 'DUPLICATE_ERROR', error.message, 409);
     }
     
-    sendError(res, error.message);
+    return sendError(res, 'SIGNIN_ERROR', error.message || 'Failed to sign in employee');
   }
 };
 
@@ -153,26 +157,26 @@ export const signIn = async (req: Request, res: Response) => {
 export const bulkSignIn = async (req: Request, res: Response) => {
   try {
     const { employeeIds, date, signInTime, location, projectId } = req.body;
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
 
     // Validation
     if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
-      return sendError(res, 'employeeIds array is required', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'employeeIds array is required', 400);
     }
 
     if (!date || !signInTime) {
-      return sendError(res, 'date and signInTime are required', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'date and signInTime are required', 400);
     }
 
     if (!userId) {
-      return sendError(res, 'User not authenticated', 401);
+      return sendError(res, 'AUTH_ERROR', 'User not authenticated', 401);
     }
 
     const dateObj = new Date(date);
     const signInTimeObj = new Date(signInTime);
 
     if (isNaN(dateObj.getTime()) || isNaN(signInTimeObj.getTime())) {
-      return sendError(res, 'Invalid date format', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'Invalid date format', 400);
     }
 
     const result = await signInService.bulkSignIn(
@@ -184,10 +188,10 @@ export const bulkSignIn = async (req: Request, res: Response) => {
       projectId
     );
 
-    sendSuccess(res, result, 'Bulk sign-in completed successfully', 201);
+    return sendSuccess(res, result, 'Bulk sign-in completed successfully', 201);
   } catch (error: any) {
     logger.error('Error in bulkSignIn controller', { error });
-    sendError(res, error.message);
+    return sendError(res, 'BULK_SIGNIN_ERROR', error.message || 'Failed to bulk sign in employees');
   }
 };
 
@@ -200,35 +204,39 @@ export const signOut = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { signOutTime } = req.body;
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
 
-    if (!signOutTime) {
-      return sendError(res, 'signOutTime is required', 400);
+    if (!id) {
+      return sendError(res, 'VALIDATION_ERROR', 'Sign-in ID is required', 400);
     }
 
     if (!userId) {
-      return sendError(res, 'User not authenticated', 401);
+      return sendError(res, 'AUTH_ERROR', 'User not authenticated', 401);
+    }
+
+    if (!signOutTime) {
+      return sendError(res, 'VALIDATION_ERROR', 'signOutTime is required', 400);
     }
 
     const signOutTimeObj = new Date(signOutTime);
     if (isNaN(signOutTimeObj.getTime())) {
-      return sendError(res, 'Invalid date format', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'Invalid date format', 400);
     }
 
     const signInRecord = await signInService.signOut(id, signOutTimeObj, userId);
-    sendSuccess(res, signInRecord, 'Employee signed out successfully');
+    return sendSuccess(res, signInRecord, 'Employee signed out successfully');
   } catch (error: any) {
     logger.error('Error in signOut controller', { error });
     
     if (error.message.includes('not found')) {
-      return sendError(res, error.message, 404);
+      return sendError(res, 'NOT_FOUND', error.message, 404);
     }
     
     if (error.message.includes('already signed out')) {
-      return sendError(res, error.message, 409);
+      return sendError(res, 'DUPLICATE_ERROR', error.message, 409);
     }
     
-    sendError(res, error.message);
+    return sendError(res, 'SIGNOUT_ERROR', error.message || 'Failed to sign out employee');
   }
 };
 

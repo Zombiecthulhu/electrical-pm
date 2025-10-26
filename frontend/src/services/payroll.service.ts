@@ -19,7 +19,7 @@ import {
  * Get daily payroll report
  */
 export const getDailyReport = async (date: string): Promise<DailyReport> => {
-  const response = await api.get<DailyReportResponse>(`/payroll/daily?date=${date}`);
+  const response = await api.get(`/payroll/daily?date=${date}`) as DailyReportResponse;
   return response.data;
 };
 
@@ -30,9 +30,9 @@ export const getWeeklyReport = async (
   startDate: string,
   endDate: string
 ): Promise<WeeklyReport> => {
-  const response = await api.get<WeeklyReportResponse>(
+  const response = await api.get(
     `/payroll/weekly?startDate=${startDate}&endDate=${endDate}`
-  );
+  ) as WeeklyReportResponse;
   return response.data;
 };
 
@@ -44,9 +44,9 @@ export const getProjectCostReport = async (
   startDate: string,
   endDate: string
 ): Promise<ProjectCostReport> => {
-  const response = await api.get<ProjectCostReportResponse>(
+  const response = await api.get(
     `/payroll/project/${projectId}?startDate=${startDate}&endDate=${endDate}`
-  );
+  ) as ProjectCostReportResponse;
   return response.data;
 };
 
@@ -57,9 +57,9 @@ export const getPayrollSummary = async (
   startDate: string,
   endDate: string
 ): Promise<PayrollSummary> => {
-  const response = await api.get<PayrollSummaryResponse>(
+  const response = await api.get(
     `/payroll/summary?startDate=${startDate}&endDate=${endDate}`
-  );
+  ) as PayrollSummaryResponse;
   return response.data;
 };
 

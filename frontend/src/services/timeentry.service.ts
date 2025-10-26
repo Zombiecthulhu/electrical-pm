@@ -29,7 +29,7 @@ export const getTimeEntriesForDate = async (
   if (filters?.projectId) params.append('projectId', filters.projectId);
   if (filters?.status) params.append('status', filters.status);
 
-  const response = await api.get<TimeEntriesResponse>(`/time-entries/date?${params.toString()}`);
+  const response = await api.get(`/time-entries/date?${params.toString()}`) as TimeEntriesResponse;
   return response.data;
 };
 
@@ -41,9 +41,9 @@ export const getTimeEntriesForEmployee = async (
   startDate: string,
   endDate: string
 ): Promise<TimeEntry[]> => {
-  const response = await api.get<TimeEntriesResponse>(
+  const response = await api.get(
     `/time-entries/employee/${employeeId}?startDate=${startDate}&endDate=${endDate}`
-  );
+  ) as TimeEntriesResponse;
   return response.data;
 };
 
@@ -55,9 +55,9 @@ export const getTimeEntriesForProject = async (
   startDate: string,
   endDate: string
 ): Promise<TimeEntry[]> => {
-  const response = await api.get<TimeEntriesResponse>(
+  const response = await api.get(
     `/time-entries/project/${projectId}?startDate=${startDate}&endDate=${endDate}`
-  );
+  ) as TimeEntriesResponse;
   return response.data;
 };
 
@@ -65,7 +65,7 @@ export const getTimeEntriesForProject = async (
  * Get unapproved time entries
  */
 export const getUnapprovedEntries = async (): Promise<TimeEntry[]> => {
-  const response = await api.get<TimeEntriesResponse>('/time-entries/unapproved');
+  const response = await api.get('/time-entries/unapproved') as TimeEntriesResponse;
   return response.data;
 };
 
@@ -76,9 +76,9 @@ export const calculateDayTotal = async (
   employeeId: string,
   date: string
 ): Promise<number> => {
-  const response = await api.get<{ success: boolean; data: DayTotal }>(
+  const response = await api.get(
     `/time-entries/${employeeId}/${date}/total`
-  );
+  ) as { success: boolean; data: DayTotal };
   return response.data.totalHours;
 };
 
@@ -86,7 +86,7 @@ export const calculateDayTotal = async (
  * Create a time entry
  */
 export const createTimeEntry = async (data: TimeEntryFormData): Promise<TimeEntry> => {
-  const response = await api.post<TimeEntryResponse>('/time-entries', data);
+  const response = await api.post('/time-entries', data) as TimeEntryResponse;
   return response.data;
 };
 
@@ -96,9 +96,9 @@ export const createTimeEntry = async (data: TimeEntryFormData): Promise<TimeEntr
 export const bulkCreateTimeEntries = async (
   entries: BulkTimeEntryData[]
 ): Promise<TimeEntry[]> => {
-  const response = await api.post<TimeEntriesResponse>('/time-entries/bulk', {
+  const response = await api.post('/time-entries/bulk', {
     entries,
-  });
+  }) as TimeEntriesResponse;
   return response.data;
 };
 
@@ -109,7 +109,7 @@ export const updateTimeEntry = async (
   id: string,
   data: Partial<TimeEntryFormData>
 ): Promise<TimeEntry> => {
-  const response = await api.put<TimeEntryResponse>(`/time-entries/${id}`, data);
+  const response = await api.put(`/time-entries/${id}`, data) as TimeEntryResponse;
   return response.data;
 };
 
@@ -124,7 +124,7 @@ export const deleteTimeEntry = async (id: string): Promise<void> => {
  * Approve a time entry
  */
 export const approveTimeEntry = async (id: string): Promise<TimeEntry> => {
-  const response = await api.put<TimeEntryResponse>(`/time-entries/${id}/approve`);
+  const response = await api.put(`/time-entries/${id}/approve`) as TimeEntryResponse;
   return response.data;
 };
 
@@ -132,9 +132,9 @@ export const approveTimeEntry = async (id: string): Promise<TimeEntry> => {
  * Reject a time entry
  */
 export const rejectTimeEntry = async (id: string, reason: string): Promise<TimeEntry> => {
-  const response = await api.put<TimeEntryResponse>(`/time-entries/${id}/reject`, {
+  const response = await api.put(`/time-entries/${id}/reject`, {
     reason,
-  });
+  }) as TimeEntryResponse;
   return response.data;
 };
 
@@ -145,10 +145,10 @@ export const autoCreateFromSignIn = async (
   signInId: string,
   projectId: string
 ): Promise<TimeEntry> => {
-  const response = await api.post<TimeEntryResponse>('/time-entries/auto-create', {
+  const response = await api.post('/time-entries/auto-create', {
     signInId,
     projectId,
-  });
+  }) as TimeEntryResponse;
   return response.data;
 };
 

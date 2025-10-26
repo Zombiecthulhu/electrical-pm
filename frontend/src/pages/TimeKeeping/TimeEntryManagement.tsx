@@ -2,595 +2,956 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
-  Card,
-  CardContent,
   Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
   Autocomplete,
   Alert,
   Stack,
-  MenuItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
   Chip,
   IconButton,
-  Menu,
+  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   CircularProgress,
-  Paper,
 } from '@mui/material';
 import {
   Add,
-  Download,
-  FilterList,
-  MoreVert,
-  Edit,
   Delete,
-  Check,
-  Close,
+  Save,
+  Description,
+  PictureAsPdf,
+  Warning,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
-import { useTimeEntryStore } from '../../store/timeentry.store';
+import { useTimesheetStore } from '../../store/timesheet.store';
 import { useEmployeeStore } from '../../store/employee.store';
 import { useProjectStore } from '../../store/project.store';
-import { usePayrollStore } from '../../store/payroll.store';
 import { useNotification } from '../../hooks/useNotification';
-import { formatDate, formatCurrency } from '../../utils/formatters';
-import { useMobileView } from '../../hooks/useResponsive';
-import { MobileListView, MobileListItem } from '../../components/common';
-import { ConfirmDialog } from '../../components/common';
-import { TimeEntryFormData } from '../../types/timekeeping.types';
+import { TimeEntry } from '../../services/timesheet.service';
+
+interface TimeEntryRow {
+  tempId: string;
+  employeeId: string;
+  projectId: string;
+  hoursWorked: number;
+  workType: string;
+  description: string;
+  taskPerformed: string;
+}
 
 const TimeEntryManagement: React.FC = () => {
-  const isMobile = useMobileView();
-  const { showSuccess, showError } = useNotification();
+  const { success: showSuccess, error: showError } = useNotification();
 
   // Stores
   const {
-    timeEntries,
-    selectedDate,
+    timesheets,
+    currentTimesheet,
     isLoading,
-    error,
-    fetchTimeEntriesForDate,
-    createTimeEntry,
-    updateTimeEntry,
-    deleteTimeEntry,
-    setSelectedDate,
-    clearError,
-  } = useTimeEntryStore();
+    fetchTimesheetsForDate,
+    fetchTimesheetById,
+    createTimesheet,
+    updateTimesheet,
+    clearCurrentTimesheet,
+    exportToPDF,
+  } = useTimesheetStore();
 
   const { employees, fetchEmployees } = useEmployeeStore();
   const { projects, fetchProjects } = useProjectStore();
-  const { downloadDailyCSV, downloadWeeklyCSV } = usePayrollStore();
 
-  // Local state
-  const [formDialogOpen, setFormDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null);
+  // State
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [datePickerValue, setDatePickerValue] = useState<Date>(new Date());
-  const [editingEntry, setEditingEntry] = useState<any>(null);
-  const [entryToDelete, setEntryToDelete] = useState<any>(null);
+  const [showNewTimesheetForm, setShowNewTimesheetForm] = useState(false);
+  const [selectedEmployees, setSelectedEmployees] = useState<any[]>([]);
+  const [title, setTitle] = useState('');
+  const [notes, setNotes] = useState('');
+  const [timeEntryRows, setTimeEntryRows] = useState<TimeEntryRow[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [timesheetToDelete, setTimesheetToDelete] = useState<any>(null);
 
-  // Form state
-  const [formData, setFormData] = useState<TimeEntryFormData>({
-    employeeId: '',
-    date: '',
-    projectId: '',
-    hoursWorked: 8,
-    workType: 'Regular',
-    description: '',
-    taskPerformed: '',
-  });
-
-  // Filter state
-  const [employeeFilter, setEmployeeFilter] = useState<any>(null);
-  const [projectFilter, setProjectFilter] = useState<any>(null);
-  const [statusFilter, setStatusFilter] = useState<string>('');
-
-  // Load data
+  // Load data on component mount
   useEffect(() => {
     fetchEmployees();
     fetchProjects();
-    fetchTimeEntriesForDate(selectedDate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchEmployees, fetchProjects]);
 
+  // Load timesheets when date changes
   useEffect(() => {
-    fetchTimeEntriesForDate(selectedDate, {
-      employeeId: employeeFilter?.id,
-      projectId: projectFilter?.id,
-      status: statusFilter || undefined,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, employeeFilter, projectFilter, statusFilter]);
+    const dateStr = selectedDate.toISOString().split('T')[0];
+    fetchTimesheetsForDate(dateStr);
+  }, [selectedDate, fetchTimesheetsForDate]);
 
   // Handle date change
-  const handleDateChange = (date: Date | null) => {
-    if (date) {
-      setDatePickerValue(date);
-      const dateStr = date.toISOString().split('T')[0];
-      setSelectedDate(dateStr);
+  const handleDateChange = (newDate: Date | null) => {
+    if (newDate) {
+      setDatePickerValue(newDate);
+      setSelectedDate(newDate);
+      setShowNewTimesheetForm(false);
+      setTimeEntryRows([]);
+      setSelectedEmployees([]);
+      setTitle('');
+      setNotes('');
+      clearCurrentTimesheet();
     }
   };
 
-  // Open form dialog
-  const handleOpenForm = (entry?: any) => {
-    if (entry) {
-      setEditingEntry(entry);
-      setFormData({
-        employeeId: entry.employeeId,
-        date: entry.date,
-        projectId: entry.projectId,
-        hoursWorked: entry.hoursWorked,
-        workType: entry.workType || 'Regular',
-        description: entry.description || '',
-        taskPerformed: entry.taskPerformed || '',
-      });
-    } else {
-      setEditingEntry(null);
-      setFormData({
-        employeeId: '',
-        date: selectedDate,
-        projectId: '',
-        hoursWorked: 8,
-        workType: 'Regular',
-        description: '',
-        taskPerformed: '',
-      });
-    }
-    setFormDialogOpen(true);
+  // Initialize form for new timesheet
+  const handleCreateNew = () => {
+    setShowNewTimesheetForm(true);
+    setTimeEntryRows([]);
+    setSelectedEmployees([]);
+    setTitle('');
+    setNotes('');
+    clearCurrentTimesheet();
   };
 
-  // Handle form submit
-  const handleSubmit = async () => {
-    try {
-      if (editingEntry) {
-        await updateTimeEntry(editingEntry.id, formData);
-        showSuccess('Time entry updated successfully');
-      } else {
-        await createTimeEntry(formData);
-        showSuccess('Time entry created successfully');
+  // Add employee rows when employees are selected
+  useEffect(() => {
+    if (showNewTimesheetForm && selectedEmployees.length > 0) {
+      // Add rows for newly selected employees
+      const existingEmployeeIds = timeEntryRows.map((r) => r.employeeId);
+      const newEmployees = selectedEmployees.filter(
+        (emp) => !existingEmployeeIds.includes(emp.id)
+      );
+
+      if (newEmployees.length > 0) {
+        const newRows: TimeEntryRow[] = newEmployees.map((emp) => ({
+          tempId: `new-${Date.now()}-${Math.random()}`,
+          employeeId: emp.id,
+          projectId: '',
+          hoursWorked: 8,
+          workType: 'Regular',
+          description: '',
+          taskPerformed: '',
+        }));
+        setTimeEntryRows([...timeEntryRows, ...newRows]);
       }
-      setFormDialogOpen(false);
-      fetchTimeEntriesForDate(selectedDate);
+
+      // Remove rows for deselected employees
+      const selectedIds = selectedEmployees.map((e) => e.id);
+      setTimeEntryRows((rows) => rows.filter((r) => selectedIds.includes(r.employeeId)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEmployees, showNewTimesheetForm]);
+
+  // Add a new row for an employee
+  const handleAddRow = (employeeId: string) => {
+    const newRow: TimeEntryRow = {
+      tempId: `new-${Date.now()}-${Math.random()}`,
+      employeeId,
+      projectId: '',
+      hoursWorked: 0,
+      workType: 'Regular',
+      description: '',
+      taskPerformed: '',
+    };
+    setTimeEntryRows([...timeEntryRows, newRow]);
+  };
+
+  // Delete a row
+  const handleDeleteRow = (tempId: string) => {
+    setTimeEntryRows(timeEntryRows.filter((r) => r.tempId !== tempId));
+  };
+
+  // Update row field
+  const handleUpdateRow = (tempId: string, field: keyof TimeEntryRow, value: any) => {
+    setTimeEntryRows(
+      timeEntryRows.map((r) =>
+        r.tempId === tempId ? { ...r, [field]: value } : r
+      )
+    );
+  };
+
+  // Save timesheet
+  const handleSave = async () => {
+    // Validation
+    if (timeEntryRows.length === 0) {
+      showError('Please add at least one time entry');
+      return;
+    }
+
+    const invalidRows = timeEntryRows.filter(
+      (r) => !r.projectId || r.hoursWorked <= 0
+    );
+
+    if (invalidRows.length > 0) {
+      showError('All rows must have a project and hours worked greater than 0');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const dateStr = selectedDate.toISOString().split('T')[0];
+
+      const timeEntries: TimeEntry[] = timeEntryRows.map((row) => ({
+        employeeId: row.employeeId,
+        projectId: row.projectId,
+        hoursWorked: row.hoursWorked,
+        workType: row.workType,
+        description: row.description,
+        taskPerformed: row.taskPerformed,
+      }));
+
+      const timesheetData = {
+        date: dateStr,
+        title: title || `Timesheet for ${dateStr}`,
+        notes,
+        employeeIds: selectedEmployees.map((e) => e.id),
+        timeEntries,
+      };
+
+      if (currentTimesheet) {
+        // Update existing
+        await updateTimesheet(currentTimesheet.id, {
+          title: title || `Timesheet for ${dateStr}`,
+          notes,
+          timeEntries,
+        });
+        showSuccess('Timesheet updated successfully');
+      } else {
+        // Create new
+        await createTimesheet(timesheetData);
+        showSuccess('Timesheet created successfully');
+      }
+
+      // Reload timesheets
+      await fetchTimesheetsForDate(dateStr);
+
+      // Reset form
+      setShowNewTimesheetForm(false);
+      setTimeEntryRows([]);
+      setSelectedEmployees([]);
+      setTitle('');
+      setNotes('');
+      clearCurrentTimesheet(); // Clear the current timesheet reference
     } catch (error: any) {
-      showError(error?.message || 'Failed to save time entry');
+      showError(error?.message || 'Failed to save timesheet');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // Handle delete
-  const handleDelete = async () => {
-    if (!entryToDelete) return;
+  // Load timesheet for editing
+  const handleEditTimesheet = async (timesheet: any) => {
+    // Load the full timesheet into currentTimesheet state
+    await fetchTimesheetById(timesheet.id);
+    
+    setShowNewTimesheetForm(true);
+    setTitle(timesheet.title || '');
+    setNotes(timesheet.notes || '');
+
+    // Build employee list from time entries
+    const employeeIds = Array.from(
+      new Set(timesheet.timeEntries.map((e: any) => e.employeeId))
+    );
+    const selectedEmps = (employees || []).filter((emp: any) =>
+      employeeIds.includes(emp.id)
+    );
+    setSelectedEmployees(selectedEmps);
+
+    // Build rows from time entries
+    const rows: TimeEntryRow[] = timesheet.timeEntries.map((entry: any) => ({
+      tempId: entry.id || `temp-${Date.now()}-${Math.random()}`,
+      employeeId: entry.employeeId,
+      projectId: entry.projectId,
+      hoursWorked: entry.hoursWorked,
+      workType: entry.workType || 'Regular',
+      description: entry.description || '',
+      taskPerformed: entry.taskPerformed || '',
+    }));
+
+    setTimeEntryRows(rows);
+  };
+
+  // View timesheet details
+  const handleViewTimesheet = async (timesheetToView: any) => {
+    try {
+      // Fetch full timesheet details if needed
+      const fullTimesheet = await useTimesheetStore.getState().fetchTimesheetById(timesheetToView.id);
+      setViewDialogOpen(true);
+    } catch (error: any) {
+      showError('Failed to load timesheet details');
+    }
+  };
+
+  // Export to PDF
+  const handleExportPDF = async (timesheetId: string) => {
+    try {
+      await exportToPDF(timesheetId);
+      showSuccess('PDF exported successfully');
+    } catch (error: any) {
+      showError('Failed to export PDF');
+    }
+  };
+
+  // Open delete confirmation dialog
+  const handleOpenDeleteDialog = (timesheet: any) => {
+    setTimesheetToDelete(timesheet);
+    setDeleteDialogOpen(true);
+  };
+
+  // Close delete confirmation dialog
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    setTimesheetToDelete(null);
+  };
+
+  // Confirm delete
+  const handleConfirmDelete = async () => {
+    if (!timesheetToDelete) return;
 
     try {
-      await deleteTimeEntry(entryToDelete.id);
-      showSuccess('Time entry deleted successfully');
-      setDeleteDialogOpen(false);
-      setEntryToDelete(null);
-      fetchTimeEntriesForDate(selectedDate);
+      const success = await useTimesheetStore.getState().deleteTimesheet(timesheetToDelete.id);
+      if (success) {
+        showSuccess('Timesheet deleted successfully');
+        // Reload timesheets for the date
+        await fetchTimesheetsForDate(selectedDate.toISOString().split('T')[0]);
+      } else {
+        showError('Failed to delete timesheet');
+      }
     } catch (error: any) {
-      showError(error?.message || 'Failed to delete time entry');
+      showError(error?.message || 'Failed to delete timesheet');
+    } finally {
+      handleCloseDeleteDialog();
     }
   };
 
-  // Export daily CSV
-  const handleExportDaily = async () => {
-    try {
-      await downloadDailyCSV(selectedDate);
-      showSuccess('Daily report exported successfully');
-    } catch (error: any) {
-      showError(error?.message || 'Failed to export daily report');
+  // Group rows by employee
+  const groupedRows = timeEntryRows.reduce((acc, row) => {
+    if (!acc[row.employeeId]) {
+      acc[row.employeeId] = [];
     }
-    setExportMenuAnchor(null);
-  };
-
-  // Export weekly CSV
-  const handleExportWeekly = async () => {
-    // Calculate week start (Monday) and end (Sunday)
-    const date = new Date(selectedDate);
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-    const weekStart = new Date(date.setDate(diff));
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-
-    const startStr = weekStart.toISOString().split('T')[0];
-    const endStr = weekEnd.toISOString().split('T')[0];
-
-    try {
-      await downloadWeeklyCSV(startStr, endStr);
-      showSuccess('Weekly report exported successfully');
-    } catch (error: any) {
-      showError(error?.message || 'Failed to export weekly report');
-    }
-    setExportMenuAnchor(null);
-  };
-
-  // Calculate totals
-  const totalHours = timeEntries.reduce((sum, entry) => sum + entry.hoursWorked, 0);
-  const uniqueEmployees = new Set(timeEntries.map(e => e.employeeId)).size;
-  const uniqueProjects = new Set(timeEntries.map(e => e.projectId)).size;
-
-  // DataGrid columns
-  const columns: GridColDef[] = [
-    {
-      field: 'employee',
-      headerName: 'Employee',
-      flex: 1,
-      minWidth: 150,
-      valueGetter: (value, row) => `${row.employee.firstName} ${row.employee.lastName}`,
-    },
-    {
-      field: 'project',
-      headerName: 'Project',
-      flex: 1,
-      minWidth: 150,
-      valueGetter: (value, row) => row.project.name,
-    },
-    {
-      field: 'hoursWorked',
-      headerName: 'Hours',
-      width: 100,
-      renderCell: (params) => (
-        <Chip
-          label={`${params.value} hrs`}
-          size="small"
-          color={params.value > 12 ? 'warning' : 'default'}
-        />
-      ),
-    },
-    {
-      field: 'workType',
-      headerName: 'Type',
-      width: 120,
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: 120,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          size="small"
-          color={
-            params.value === 'APPROVED'
-              ? 'success'
-              : params.value === 'REJECTED'
-              ? 'error'
-              : 'warning'
-          }
-        />
-      ),
-    },
-    {
-      field: 'actions',
-      headerName: 'Actions',
-      width: 120,
-      renderCell: (params) => (
-        <Stack direction="row" spacing={0.5}>
-          <IconButton
-            size="small"
-            onClick={() => handleOpenForm(params.row)}
-          >
-            <Edit fontSize="small" />
-          </IconButton>
-          <IconButton
-            size="small"
-            color="error"
-            onClick={() => {
-              setEntryToDelete(params.row);
-              setDeleteDialogOpen(true);
-            }}
-          >
-            <Delete fontSize="small" />
-          </IconButton>
-        </Stack>
-      ),
-    },
-  ];
-
-  // Mobile list items
-  const mobileListItems: MobileListItem[] = timeEntries.map((entry) => ({
-    id: entry.id,
-    title: `${entry.employee.firstName} ${entry.employee.lastName}`,
-    subtitle: entry.project.name,
-    description: entry.taskPerformed || entry.description || 'No description',
-    status: {
-      label: entry.status,
-      color:
-        entry.status === 'APPROVED'
-          ? 'success'
-          : entry.status === 'REJECTED'
-          ? 'error'
-          : 'warning',
-    },
-    metadata: [
-      { label: 'Hours', value: `${entry.hoursWorked} hrs` },
-      { label: 'Type', value: entry.workType || 'Regular' },
-    ],
-    actions: [
-      {
-        label: 'Edit',
-        onClick: () => handleOpenForm(entry),
-        color: 'primary',
-      },
-      {
-        label: 'Delete',
-        onClick: () => {
-          setEntryToDelete(entry);
-          setDeleteDialogOpen(true);
-        },
-        color: 'error',
-      },
-    ],
-    onClick: () => handleOpenForm(entry),
-  }));
+    acc[row.employeeId].push(row);
+    return acc;
+  }, {} as Record<string, TimeEntryRow[]>);
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1400, margin: '0 auto' }}>
+      <Box sx={{ p: 3 }}>
         {/* Header */}
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            justifyContent: 'space-between',
-            alignItems: { xs: 'stretch', sm: 'center' },
-            mb: 3,
-            gap: 2,
-          }}
-        >
-          <Typography variant="h4" component="h1">
-            Time Entry Management
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+          <Typography variant="h4" fontWeight={600}>
+            Time Entry
           </Typography>
+        </Stack>
 
-          <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
-            <DatePicker
-              label="Date"
-              value={datePickerValue}
-              onChange={handleDateChange}
-              slotProps={{
-                textField: {
-                  size: 'small',
-                  fullWidth: isMobile,
-                },
-              }}
-            />
-            <Button
-              variant="outlined"
-              startIcon={<Download />}
-              onClick={(e) => setExportMenuAnchor(e.currentTarget)}
-              fullWidth={isMobile}
-            >
-              Export CSV
-            </Button>
-          </Box>
-        </Box>
+        {/* Date Picker */}
+        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
+          <DatePicker
+            label="Select Date"
+            value={datePickerValue}
+            onChange={handleDateChange}
+            slotProps={{
+              textField: {
+                fullWidth: false,
+              },
+            }}
+          />
 
-        {/* Error Alert */}
-        {error && (
-          <Alert severity="error" onClose={clearError} sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        {/* Summary Cards */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mb: 3 }}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                Total Hours
-              </Typography>
-              <Typography variant="h4">{totalHours.toFixed(2)}</Typography>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                Employees
-              </Typography>
-              <Typography variant="h4">{uniqueEmployees}</Typography>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                Projects
-              </Typography>
-              <Typography variant="h4">{uniqueProjects}</Typography>
-            </CardContent>
-          </Card>
-        </Box>
-
-        {/* Actions */}
-        <Box sx={{ mb: 3, display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
           <Button
             variant="contained"
             startIcon={<Add />}
-            onClick={() => handleOpenForm()}
-            fullWidth={isMobile}
+            onClick={handleCreateNew}
+            disabled={showNewTimesheetForm}
           >
-            Add Time Entry
+            Create New Timesheet
           </Button>
+        </Stack>
 
-          <Autocomplete
-            options={employees}
-            getOptionLabel={(option) => `${option.firstName} ${option.lastName}`}
-            value={employeeFilter}
-            onChange={(_, newValue) => setEmployeeFilter(newValue)}
-            renderInput={(params) => <TextField {...params} label="Filter by Employee" size="small" />}
-            sx={{ minWidth: { xs: '100%', sm: 200 } }}
-          />
-
-          <Autocomplete
-            options={projects}
-            getOptionLabel={(option) => option.name}
-            value={projectFilter}
-            onChange={(_, newValue) => setProjectFilter(newValue)}
-            renderInput={(params) => <TextField {...params} label="Filter by Project" size="small" />}
-            sx={{ minWidth: { xs: '100%', sm: 200 } }}
-          />
-        </Box>
-
-        {/* Time Entries Table/List */}
-        {isLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
-          </Box>
-        ) : timeEntries.length === 0 ? (
-          <Paper sx={{ p: 4, textAlign: 'center' }}>
-            <Typography color="text.secondary">
-              No time entries for this date
-            </Typography>
-          </Paper>
-        ) : isMobile ? (
-          <MobileListView
-            items={mobileListItems}
-            loading={isLoading}
-          />
-        ) : (
-          <Card>
-            <DataGrid
-              rows={timeEntries}
-              columns={columns}
-              initialState={{
-                pagination: {
-                  paginationModel: { pageSize: 25, page: 0 },
-                },
-              }}
-              pageSizeOptions={[10, 25, 50, 100]}
-              disableRowSelectionOnClick
-              autoHeight
-            />
-          </Card>
+        {/* Instructions */}
+        {showNewTimesheetForm && (
+          <Alert severity="info" sx={{ mb: 3 }}>
+            1. Select employees for this timesheet
+            <br />
+            2. Enter project, hours, and other details for each employee
+            <br />
+            3. Use the "+ Add Row" button to add multiple projects for an employee
+            <br />
+            4. Click "Save Timesheet" when done
+          </Alert>
         )}
 
-        {/* Export Menu */}
-        <Menu
-          anchorEl={exportMenuAnchor}
-          open={Boolean(exportMenuAnchor)}
-          onClose={() => setExportMenuAnchor(null)}
-        >
-          <MenuItem onClick={handleExportDaily}>Export Daily (Selected Date)</MenuItem>
-          <MenuItem onClick={handleExportWeekly}>Export Weekly (Current Week)</MenuItem>
-        </Menu>
+        {/* New/Edit Timesheet Form */}
+        {showNewTimesheetForm && (
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              {currentTimesheet ? 'Edit Timesheet' : 'New Timesheet'}
+            </Typography>
 
-        {/* Form Dialog */}
+            <Stack spacing={2}>
+              {/* Title */}
+              <TextField
+                label="Title (optional)"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                fullWidth
+                placeholder={`Timesheet for ${selectedDate.toISOString().split('T')[0]}`}
+              />
+
+              {/* Notes */}
+              <TextField
+                label="Notes (optional)"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                fullWidth
+                multiline
+                rows={2}
+                placeholder="Add any notes about this timesheet..."
+              />
+
+              {/* Employee Selection */}
+              <Autocomplete
+                multiple
+                options={employees || []}
+                value={selectedEmployees}
+                onChange={(_, newValue) => setSelectedEmployees(newValue)}
+                getOptionLabel={(option: any) =>
+                  `${option.firstName} ${option.lastName} (${option.classification})`
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Select Employees"
+                    placeholder="Choose employees..."
+                  />
+                )}
+                isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
+              />
+
+              {/* Time Entry Table */}
+              {timeEntryRows.length > 0 && (
+                <TableContainer component={Paper} variant="outlined">
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Employee</TableCell>
+                        <TableCell>Project</TableCell>
+                        <TableCell width={100}>Hours</TableCell>
+                        <TableCell width={120}>Work Type</TableCell>
+                        <TableCell>Task/Description</TableCell>
+                        <TableCell width={100}>Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {Object.entries(groupedRows).map(([employeeId, rows]) => {
+                        const employee = (employees || []).find((e: any) => e.id === employeeId);
+                        const employeeName = employee
+                          ? `${employee.firstName} ${employee.lastName}`
+                          : 'Unknown';
+
+                        return (
+                          <React.Fragment key={employeeId}>
+                            {rows.map((row, idx) => {
+                              const isFirst = idx === 0;
+                              const isLast = idx === rows.length - 1;
+
+                              return (
+                                <TableRow
+                                  key={row.tempId}
+                                  sx={{
+                                    borderTop: isFirst ? '3px solid' : undefined,
+                                    borderTopColor: isFirst ? 'primary.main' : undefined,
+                                    borderBottom: isLast ? '2px solid' : undefined,
+                                    borderBottomColor: isLast ? 'divider' : undefined,
+                                  }}
+                                >
+                                  {/* Employee Name (only on first row) */}
+                                  <TableCell>
+                                    {isFirst && (
+                                      <Typography variant="body2" fontWeight={600}>
+                                        {employeeName}
+                                      </Typography>
+                                    )}
+                                  </TableCell>
+
+                                  {/* Project */}
+                                  <TableCell>
+                                    <Autocomplete
+                                      options={projects || []}
+                                      value={
+                                        (projects || []).find((p: any) => p.id === row.projectId) ||
+                                        null
+                                      }
+                                      onChange={(_, newValue) =>
+                                        handleUpdateRow(row.tempId, 'projectId', newValue?.id || '')
+                                      }
+                                      getOptionLabel={(option: any) =>
+                                        `${option.name} (${option.projectNumber})`
+                                      }
+                                      renderInput={(params) => (
+                                        <TextField {...params} size="small" required />
+                                      )}
+                                      isOptionEqualToValue={(option: any, value: any) =>
+                                        option.id === value.id
+                                      }
+                                    />
+                                  </TableCell>
+
+                                  {/* Hours */}
+                                  <TableCell>
+                                    <TextField
+                                      type="number"
+                                      value={row.hoursWorked}
+                                      onChange={(e) =>
+                                        handleUpdateRow(
+                                          row.tempId,
+                                          'hoursWorked',
+                                          Number(e.target.value)
+                                        )
+                                      }
+                                      size="small"
+                                      inputProps={{ min: 0, step: 0.5 }}
+                                      required
+                                    />
+                                  </TableCell>
+
+                                  {/* Work Type */}
+                                  <TableCell>
+                                    <TextField
+                                      select
+                                      value={row.workType}
+                                      onChange={(e) =>
+                                        handleUpdateRow(row.tempId, 'workType', e.target.value)
+                                      }
+                                      size="small"
+                                      fullWidth
+                                    >
+                                      <MenuItem value="Regular">Regular</MenuItem>
+                                      <MenuItem value="Overtime">Overtime</MenuItem>
+                                      <MenuItem value="Double Time">Double Time</MenuItem>
+                                    </TextField>
+                                  </TableCell>
+
+                                  {/* Task/Description */}
+                                  <TableCell>
+                                    <TextField
+                                      value={row.description}
+                                      onChange={(e) =>
+                                        handleUpdateRow(row.tempId, 'description', e.target.value)
+                                      }
+                                      size="small"
+                                      placeholder="Task description..."
+                                      fullWidth
+                                    />
+                                  </TableCell>
+
+                                  {/* Actions */}
+                                  <TableCell>
+                                    <Stack direction="row" spacing={0.5}>
+                                      {isLast && (
+                                        <IconButton
+                                          size="small"
+                                          color="primary"
+                                          onClick={() => handleAddRow(employeeId)}
+                                          title="Add another project for this employee"
+                                        >
+                                          <Add fontSize="small" />
+                                        </IconButton>
+                                      )}
+                                      <IconButton
+                                        size="small"
+                                        color="error"
+                                        onClick={() => handleDeleteRow(row.tempId)}
+                                        title="Delete this row"
+                                      >
+                                        <Delete fontSize="small" />
+                                      </IconButton>
+                                    </Stack>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </React.Fragment>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+
+              {/* Action Buttons */}
+              <Stack direction="row" spacing={2} justifyContent="flex-end">
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setShowNewTimesheetForm(false);
+                    setTimeEntryRows([]);
+                    setSelectedEmployees([]);
+                    setTitle('');
+                    setNotes('');
+                    clearCurrentTimesheet();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={isSaving ? <CircularProgress size={20} /> : <Save />}
+                  onClick={handleSave}
+                  disabled={isSaving}
+                >
+                  {isSaving ? 'Saving...' : 'Save Timesheet'}
+                </Button>
+              </Stack>
+            </Stack>
+          </Paper>
+        )}
+
+        {/* Existing Timesheets */}
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          Timesheets for {selectedDate.toLocaleDateString()}
+        </Typography>
+
+        {isLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : timesheets.length === 0 ? (
+          <Alert severity="info">No timesheets found for this date</Alert>
+        ) : (
+          <Stack spacing={2}>
+            {timesheets.map((timesheet: any) => (
+              <Paper key={timesheet.id} sx={{ p: 2 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="h6">{timesheet.title || 'Untitled Timesheet'}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Status: <Chip label={timesheet.status} size="small" color={
+                        timesheet.status === 'DRAFT' ? 'default' :
+                        timesheet.status === 'SUBMITTED' ? 'warning' : 'success'
+                      } />
+                      {' | '}
+                      Entries: {timesheet.entryCount || timesheet.timeEntries?.length || 0}
+                      {' | '}
+                      Created by: {timesheet.createdByUser?.firstName} {timesheet.createdByUser?.lastName}
+                    </Typography>
+                    {timesheet.notes && (
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        {timesheet.notes}
+                      </Typography>
+                    )}
+                  </Box>
+
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Description />}
+                      onClick={() => handleViewTimesheet(timesheet)}
+                    >
+                      View
+                    </Button>
+                    {timesheet.status === 'DRAFT' && (
+                      <>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => handleEditTimesheet(timesheet)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          color="error"
+                          startIcon={<Delete />}
+                          onClick={() => handleOpenDeleteDialog(timesheet)}
+                        >
+                          Delete
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<PictureAsPdf />}
+                      onClick={() => handleExportPDF(timesheet.id)}
+                    >
+                      PDF
+                    </Button>
+                  </Stack>
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+        )}
+
+        {/* View Dialog */}
         <Dialog
-          open={formDialogOpen}
-          onClose={() => setFormDialogOpen(false)}
-          maxWidth="sm"
+          open={viewDialogOpen}
+          onClose={() => setViewDialogOpen(false)}
+          maxWidth="lg"
           fullWidth
-          fullScreen={isMobile}
         >
           <DialogTitle>
-            {editingEntry ? 'Edit Time Entry' : 'Add Time Entry'}
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Box>
+                <Typography variant="h6">
+                  {currentTimesheet?.title || 'Timesheet Details'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {currentTimesheet?.date && new Date(currentTimesheet.date).toLocaleDateString()} | Status:{' '}
+                  <Chip
+                    label={currentTimesheet?.status}
+                    size="small"
+                    color={
+                      currentTimesheet?.status === 'DRAFT'
+                        ? 'default'
+                        : currentTimesheet?.status === 'SUBMITTED'
+                        ? 'warning'
+                        : 'success'
+                    }
+                  />
+                </Typography>
+              </Box>
+              <IconButton onClick={() => handleExportPDF(currentTimesheet?.id || '')}>
+                <PictureAsPdf />
+              </IconButton>
+            </Stack>
           </DialogTitle>
           <DialogContent>
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              <Autocomplete
-                options={employees}
-                getOptionLabel={(option) =>
-                  `${option.firstName} ${option.lastName} - ${option.classification}`
-                }
-                value={employees.find((e) => e.id === formData.employeeId) || null}
-                onChange={(_, newValue) =>
-                  setFormData({ ...formData, employeeId: newValue?.id || '' })
-                }
-                renderInput={(params) => (
-                  <TextField {...params} label="Employee" required />
-                )}
-              />
+            {currentTimesheet?.notes && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <strong>Notes:</strong> {currentTimesheet.notes}
+              </Alert>
+            )}
 
-              <Autocomplete
-                options={projects}
-                getOptionLabel={(option) => `${option.projectNumber} - ${option.name}`}
-                value={projects.find((p) => p.id === formData.projectId) || null}
-                onChange={(_, newValue) =>
-                  setFormData({ ...formData, projectId: newValue?.id || '' })
-                }
-                renderInput={(params) => (
-                  <TextField {...params} label="Project" required />
-                )}
-              />
+            {currentTimesheet?.timeEntries && currentTimesheet.timeEntries.length > 0 ? (
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Employee</TableCell>
+                      <TableCell>Project</TableCell>
+                      <TableCell align="right">Hours</TableCell>
+                      <TableCell>Work Type</TableCell>
+                      <TableCell>Task/Description</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(() => {
+                      // Classification hierarchy for sorting
+                      const classificationOrder: Record<string, number> = {
+                        'SUPERVISOR': 1,
+                        'PROJECT_MANAGER': 2,
+                        'GENERAL_FOREMAN': 3,
+                        'FOREMAN': 4,
+                        'JOURNEYMAN': 5,
+                        'APPRENTICE': 6,
+                      };
 
-              <TextField
-                label="Hours Worked"
-                type="number"
-                value={formData.hoursWorked}
-                onChange={(e) =>
-                  setFormData({ ...formData, hoursWorked: parseFloat(e.target.value) })
-                }
-                inputProps={{ min: 0, max: 24, step: 0.5 }}
-                required
-                fullWidth
-              />
+                      const getClassificationOrder = (classification: string): number => {
+                        return classificationOrder[classification?.toUpperCase()] || 999;
+                      };
 
-              <TextField
-                label="Work Type"
-                select
-                value={formData.workType}
-                onChange={(e) => setFormData({ ...formData, workType: e.target.value as any })}
-                fullWidth
-              >
-                <MenuItem value="Regular">Regular</MenuItem>
-                <MenuItem value="Overtime">Overtime</MenuItem>
-                <MenuItem value="Double Time">Double Time</MenuItem>
-              </TextField>
+                      // Group entries by employee
+                      const grouped = (currentTimesheet.timeEntries || []).reduce((acc: any, entry: any) => {
+                        const empId = entry.employeeId;
+                        if (!acc[empId]) {
+                          acc[empId] = {
+                            employee: entry.employee,
+                            entries: [],
+                            total: 0,
+                          };
+                        }
+                        acc[empId].entries.push(entry);
+                        acc[empId].total += entry.hoursWorked;
+                        return acc;
+                      }, {});
 
-              <TextField
-                label="Task Performed"
-                value={formData.taskPerformed}
-                onChange={(e) => setFormData({ ...formData, taskPerformed: e.target.value })}
-                fullWidth
-              />
+                      // Sort employees by classification
+                      const sortedGroups = Object.values(grouped).sort((a: any, b: any) => {
+                        const classA = a.employee?.classification || '';
+                        const classB = b.employee?.classification || '';
+                        return getClassificationOrder(classA) - getClassificationOrder(classB);
+                      });
 
-              <TextField
-                label="Description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                multiline
-                rows={3}
-                fullWidth
-              />
-            </Stack>
+                      let grandTotal = 0;
+
+                      return (
+                        <>
+                          {sortedGroups.map((group: any, groupIdx: number) => (
+                            <React.Fragment key={groupIdx}>
+                              {group.entries.map((entry: any, entryIdx: number) => {
+                                const isFirst = entryIdx === 0;
+                                const isLast = entryIdx === group.entries.length - 1;
+
+                                if (isLast) {
+                                  grandTotal += group.total;
+                                }
+
+                                return (
+                                  <TableRow
+                                    key={entry.id}
+                                    sx={{
+                                      borderTop: isFirst ? '2px solid' : undefined,
+                                      borderTopColor: isFirst ? 'primary.main' : undefined,
+                                    }}
+                                  >
+                                    <TableCell>
+                                      {isFirst && (
+                                        <Typography variant="body2" fontWeight={600}>
+                                          {group.employee?.firstName} {group.employee?.lastName}
+                                          <br />
+                                          <Typography
+                                            variant="caption"
+                                            color="text.secondary"
+                                            component="span"
+                                          >
+                                            {group.employee?.classification}
+                                          </Typography>
+                                        </Typography>
+                                      )}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Typography variant="body2">
+                                        {entry.project?.name}
+                                        <br />
+                                        <Typography
+                                          variant="caption"
+                                          color="text.secondary"
+                                          component="span"
+                                        >
+                                          {entry.project?.projectNumber}
+                                        </Typography>
+                                      </Typography>
+                                    </TableCell>
+                                    <TableCell align="right">
+                                      <strong>{entry.hoursWorked}h</strong>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Chip label={entry.workType} size="small" variant="outlined" />
+                                    </TableCell>
+                                    <TableCell>
+                                      {entry.taskPerformed || entry.description || '-'}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                              {/* Employee subtotal */}
+                              <TableRow sx={{ bgcolor: 'action.hover' }}>
+                                <TableCell colSpan={2} align="right">
+                                  <Typography variant="body2" fontWeight={600}>
+                                    {group.employee?.firstName} {group.employee?.lastName} Total:
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography variant="body2" fontWeight={600}>
+                                    {group.total.toFixed(2)}h
+                                  </Typography>
+                                </TableCell>
+                                <TableCell colSpan={2} />
+                              </TableRow>
+                            </React.Fragment>
+                          ))}
+                          {/* Grand total */}
+                          <TableRow sx={{ bgcolor: 'primary.main', color: 'white' }}>
+                            <TableCell colSpan={2} align="right" sx={{ color: 'white' }}>
+                              <Typography variant="body1" fontWeight={700}>
+                                Grand Total:
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right" sx={{ color: 'white' }}>
+                              <Typography variant="body1" fontWeight={700}>
+                                {grandTotal.toFixed(2)}h
+                              </Typography>
+                            </TableCell>
+                            <TableCell colSpan={2} sx={{ color: 'white' }} />
+                          </TableRow>
+                        </>
+                      );
+                    })()}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Alert severity="info">No time entries in this timesheet</Alert>
+            )}
+
+            {currentTimesheet?.createdByUser && (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+                Created by {currentTimesheet.createdByUser.firstName}{' '}
+                {currentTimesheet.createdByUser.lastName} on{' '}
+                {new Date(currentTimesheet.createdAt).toLocaleString()}
+              </Typography>
+            )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setFormDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
             <Button
               variant="contained"
-              onClick={handleSubmit}
-              disabled={!formData.employeeId || !formData.projectId || isLoading}
+              startIcon={<PictureAsPdf />}
+              onClick={() => handleExportPDF(currentTimesheet?.id || '')}
             >
-              {editingEntry ? 'Update' : 'Create'}
+              Export PDF
             </Button>
           </DialogActions>
         </Dialog>
 
-        {/* Delete Confirmation */}
-        <ConfirmDialog
+        {/* Delete Confirmation Dialog */}
+        <Dialog
           open={deleteDialogOpen}
-          title="Delete Time Entry"
-          description={
-            entryToDelete
-              ? `Are you sure you want to delete this time entry for ${entryToDelete.employee.firstName} ${entryToDelete.employee.lastName}?`
-              : ''
-          }
-          onConfirm={handleDelete}
-          onClose={() => {
-            setDeleteDialogOpen(false);
-            setEntryToDelete(null);
-          }}
-          confirmText="Delete"
-        />
+          onClose={handleCloseDeleteDialog}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Warning color="error" />
+              <Typography variant="h6">Delete Timesheet?</Typography>
+            </Stack>
+          </DialogTitle>
+          <DialogContent>
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              This action cannot be undone!
+            </Alert>
+            <Typography>
+              Are you sure you want to delete this timesheet?
+            </Typography>
+            {timesheetToDelete && (
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                <Typography variant="body2">
+                  <strong>Title:</strong> {timesheetToDelete.title || 'Untitled Timesheet'}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Date:</strong>{' '}
+                  {new Date(timesheetToDelete.date).toLocaleDateString()}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Entries:</strong>{' '}
+                  {timesheetToDelete.entryCount || timesheetToDelete.timeEntries?.length || 0}
+                </Typography>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseDeleteDialog}>Cancel</Button>
+            <Button
+              variant="contained"
+              color="error"
+              startIcon={<Delete />}
+              onClick={handleConfirmDelete}
+            >
+              Delete Timesheet
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </LocalizationProvider>
   );
 };
 
 export default TimeEntryManagement;
-

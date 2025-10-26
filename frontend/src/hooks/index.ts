@@ -39,6 +39,9 @@
 // Notification hook
 export { useNotification } from './useNotification';
 
+// Permission hook
+export { usePermissions } from './usePermissions';
+
 // Keyboard hooks
 export {
   useKeyboardShortcut,

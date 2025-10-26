@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import * as timeEntryService from '../services/timeentry.service';
-import { sendSuccess, sendError } from '../utils/response';
+import { sendSuccess, sendError, sendCreated } from '../utils/response';
 import { logger } from '../utils/logger';
 
 /**
@@ -17,12 +17,12 @@ export const getTimeEntriesForDate = async (req: Request, res: Response) => {
     const { date, employeeId, projectId, status } = req.query;
 
     if (!date) {
-      return sendError(res, 'Date parameter is required', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'Date parameter is required', 400);
     }
 
     const dateObj = new Date(date as string);
     if (isNaN(dateObj.getTime())) {
-      return sendError(res, 'Invalid date format', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'Invalid date format', 400);
     }
 
     const filters: any = {};
@@ -31,10 +31,10 @@ export const getTimeEntriesForDate = async (req: Request, res: Response) => {
     if (status) filters.status = status as string;
 
     const timeEntries = await timeEntryService.getTimeEntriesForDate(dateObj, filters);
-    sendSuccess(res, timeEntries, 'Time entries retrieved successfully');
+    return sendSuccess(res, timeEntries, 'Time entries retrieved successfully');
   } catch (error: any) {
     logger.error('Error in getTimeEntriesForDate controller', { error });
-    sendError(res, error.message);
+    return sendError(res, 'FETCH_ERROR', error.message || 'Failed to fetch time entries');
   }
 };
 
@@ -47,15 +47,19 @@ export const getTimeEntriesForEmployee = async (req: Request, res: Response) => 
     const { employeeId } = req.params;
     const { startDate, endDate } = req.query;
 
+    if (!employeeId) {
+      return sendError(res, 'VALIDATION_ERROR', 'employeeId parameter is required', 400);
+    }
+
     if (!startDate || !endDate) {
-      return sendError(res, 'startDate and endDate parameters are required', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'startDate and endDate parameters are required', 400);
     }
 
     const startDateObj = new Date(startDate as string);
     const endDateObj = new Date(endDate as string);
 
     if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
-      return sendError(res, 'Invalid date format', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'Invalid date format', 400);
     }
 
     const timeEntries = await timeEntryService.getTimeEntriesForEmployee(
@@ -63,10 +67,10 @@ export const getTimeEntriesForEmployee = async (req: Request, res: Response) => 
       startDateObj,
       endDateObj
     );
-    sendSuccess(res, timeEntries, 'Employee time entries retrieved successfully');
+    return sendSuccess(res, timeEntries, 'Employee time entries retrieved successfully');
   } catch (error: any) {
     logger.error('Error in getTimeEntriesForEmployee controller', { error });
-    sendError(res, error.message);
+    return sendError(res, 'FETCH_ERROR', error.message || 'Failed to fetch employee time entries');
   }
 };
 
@@ -79,15 +83,19 @@ export const getTimeEntriesForProject = async (req: Request, res: Response) => {
     const { projectId } = req.params;
     const { startDate, endDate } = req.query;
 
+    if (!projectId) {
+      return sendError(res, 'VALIDATION_ERROR', 'projectId parameter is required', 400);
+    }
+
     if (!startDate || !endDate) {
-      return sendError(res, 'startDate and endDate parameters are required', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'startDate and endDate parameters are required', 400);
     }
 
     const startDateObj = new Date(startDate as string);
     const endDateObj = new Date(endDate as string);
 
     if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
-      return sendError(res, 'Invalid date format', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'Invalid date format', 400);
     }
 
     const timeEntries = await timeEntryService.getTimeEntriesForProject(
@@ -95,86 +103,35 @@ export const getTimeEntriesForProject = async (req: Request, res: Response) => {
       startDateObj,
       endDateObj
     );
-    sendSuccess(res, timeEntries, 'Project time entries retrieved successfully');
+    return sendSuccess(res, timeEntries, 'Project time entries retrieved successfully');
   } catch (error: any) {
     logger.error('Error in getTimeEntriesForProject controller', { error });
-    sendError(res, error.message);
-  }
-};
-
-/**
- * Get unapproved time entries
- * GET /api/v1/time-entries/unapproved
- */
-export const getUnapprovedEntries = async (req: Request, res: Response) => {
-  try {
-    const timeEntries = await timeEntryService.getUnapprovedEntries();
-    sendSuccess(res, timeEntries, 'Unapproved time entries retrieved successfully');
-  } catch (error: any) {
-    logger.error('Error in getUnapprovedEntries controller', { error });
-    sendError(res, error.message);
-  }
-};
-
-/**
- * Calculate day total for an employee
- * GET /api/v1/time-entries/:employeeId/:date/total
- */
-export const calculateDayTotal = async (req: Request, res: Response) => {
-  try {
-    const { employeeId, date } = req.params;
-
-    const dateObj = new Date(date);
-    if (isNaN(dateObj.getTime())) {
-      return sendError(res, 'Invalid date format', 400);
-    }
-
-    const totalHours = await timeEntryService.calculateDayTotal(employeeId, dateObj);
-    sendSuccess(res, { totalHours }, 'Day total calculated successfully');
-  } catch (error: any) {
-    logger.error('Error in calculateDayTotal controller', { error });
-    sendError(res, error.message);
+    return sendError(res, 'FETCH_ERROR', error.message || 'Failed to fetch project time entries');
   }
 };
 
 /**
  * Create a time entry
  * POST /api/v1/time-entries
- * Body: { employeeId, date, projectId, hoursWorked, workType?, description?, taskPerformed?, hourlyRate?, startTime?, endTime?, signInId? }
+ * Body: { employeeId, date, projectId, hoursWorked, startTime?, endTime?, workType?, description?, taskPerformed? }
  */
 export const createTimeEntry = async (req: Request, res: Response) => {
   try {
-    const {
-      employeeId,
-      date,
-      projectId,
-      hoursWorked,
-      workType,
-      description,
-      taskPerformed,
-      hourlyRate,
-      startTime,
-      endTime,
-      signInId,
-    } = req.body;
-    const userId = req.user?.userId;
+    const { employeeId, date, projectId, hoursWorked, startTime, endTime, workType, description, taskPerformed } = req.body;
+    const userId = req.user?.id;
 
     // Validation
-    if (!employeeId || !date || !projectId || hoursWorked === undefined) {
-      return sendError(
-        res,
-        'employeeId, date, projectId, and hoursWorked are required',
-        400
-      );
+    if (!employeeId || !date || !projectId || !hoursWorked) {
+      return sendError(res, 'VALIDATION_ERROR', 'employeeId, date, projectId, and hoursWorked are required', 400);
     }
 
     if (!userId) {
-      return sendError(res, 'User not authenticated', 401);
+      return sendError(res, 'AUTH_ERROR', 'User not authenticated', 401);
     }
 
     const dateObj = new Date(date);
     if (isNaN(dateObj.getTime())) {
-      return sendError(res, 'Invalid date format', 400);
+      return sendError(res, 'VALIDATION_ERROR', 'Invalid date format', 400);
     }
 
     const timeEntryData: any = {
@@ -185,122 +142,85 @@ export const createTimeEntry = async (req: Request, res: Response) => {
       workType,
       description,
       taskPerformed,
-      hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
-      signInId,
     };
 
     if (startTime) {
-      timeEntryData.startTime = new Date(startTime);
+      const startTimeObj = new Date(startTime);
+      if (!isNaN(startTimeObj.getTime())) {
+        timeEntryData.startTime = startTimeObj;
+      }
     }
+
     if (endTime) {
-      timeEntryData.endTime = new Date(endTime);
+      const endTimeObj = new Date(endTime);
+      if (!isNaN(endTimeObj.getTime())) {
+        timeEntryData.endTime = endTimeObj;
+      }
     }
 
     const timeEntry = await timeEntryService.create(timeEntryData, userId);
-    sendSuccess(res, timeEntry, 'Time entry created successfully', 201);
+    return sendCreated(res, timeEntry, 'Time entry created successfully');
   } catch (error: any) {
     logger.error('Error in createTimeEntry controller', { error });
-    
-    if (error.message.includes('must be between')) {
-      return sendError(res, error.message, 400);
-    }
-    
-    sendError(res, error.message);
-  }
-};
-
-/**
- * Bulk create time entries
- * POST /api/v1/time-entries/bulk
- * Body: { entries: [{ employeeId, date, projectId, hoursWorked, ... }] }
- */
-export const bulkCreateTimeEntries = async (req: Request, res: Response) => {
-  try {
-    const { entries } = req.body;
-    const userId = req.user?.userId;
-
-    if (!entries || !Array.isArray(entries) || entries.length === 0) {
-      return sendError(res, 'entries array is required', 400);
-    }
-
-    if (!userId) {
-      return sendError(res, 'User not authenticated', 401);
-    }
-
-    // Parse and validate entries
-    const timeEntryData = entries.map((entry: any) => {
-      const dateObj = new Date(entry.date);
-      if (isNaN(dateObj.getTime())) {
-        throw new Error(`Invalid date format for employee ${entry.employeeId}`);
-      }
-
-      return {
-        employeeId: entry.employeeId,
-        date: dateObj,
-        projectId: entry.projectId,
-        hoursWorked: parseFloat(entry.hoursWorked),
-        workType: entry.workType,
-        description: entry.description,
-        taskPerformed: entry.taskPerformed,
-        hourlyRate: entry.hourlyRate ? parseFloat(entry.hourlyRate) : undefined,
-        startTime: entry.startTime ? new Date(entry.startTime) : undefined,
-        endTime: entry.endTime ? new Date(entry.endTime) : undefined,
-        signInId: entry.signInId,
-      };
-    });
-
-    const createdEntries = await timeEntryService.bulkCreate(timeEntryData, userId);
-    sendSuccess(res, createdEntries, 'Time entries created successfully', 201);
-  } catch (error: any) {
-    logger.error('Error in bulkCreateTimeEntries controller', { error });
-    sendError(res, error.message);
+    return sendError(res, 'CREATE_ERROR', error.message || 'Failed to create time entry');
   }
 };
 
 /**
  * Update a time entry
  * PUT /api/v1/time-entries/:id
- * Body: { hoursWorked?, workType?, description?, taskPerformed?, hourlyRate?, startTime?, endTime? }
  */
 export const updateTimeEntry = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = req.user?.userId;
+    const updateData = req.body;
+    const userId = req.user?.id;
+
+    if (!id) {
+      return sendError(res, 'VALIDATION_ERROR', 'Time entry ID is required', 400);
+    }
 
     if (!userId) {
-      return sendError(res, 'User not authenticated', 401);
+      return sendError(res, 'AUTH_ERROR', 'User not authenticated', 401);
     }
 
-    const updateData: any = {};
+    // Convert date strings to Date objects
+    if (updateData.date) {
+      const dateObj = new Date(updateData.date);
+      if (isNaN(dateObj.getTime())) {
+        return sendError(res, 'VALIDATION_ERROR', 'Invalid date format', 400);
+      }
+      updateData.date = dateObj;
+    }
 
-    if (req.body.hoursWorked !== undefined) {
-      updateData.hoursWorked = parseFloat(req.body.hoursWorked);
+    if (updateData.startTime) {
+      const startTimeObj = new Date(updateData.startTime);
+      if (!isNaN(startTimeObj.getTime())) {
+        updateData.startTime = startTimeObj;
+      }
     }
-    if (req.body.workType !== undefined) updateData.workType = req.body.workType;
-    if (req.body.description !== undefined)
-      updateData.description = req.body.description;
-    if (req.body.taskPerformed !== undefined)
-      updateData.taskPerformed = req.body.taskPerformed;
-    if (req.body.hourlyRate !== undefined) {
-      updateData.hourlyRate = parseFloat(req.body.hourlyRate);
+
+    if (updateData.endTime) {
+      const endTimeObj = new Date(updateData.endTime);
+      if (!isNaN(endTimeObj.getTime())) {
+        updateData.endTime = endTimeObj;
+      }
     }
-    if (req.body.startTime !== undefined) {
-      updateData.startTime = new Date(req.body.startTime);
-    }
-    if (req.body.endTime !== undefined) {
-      updateData.endTime = new Date(req.body.endTime);
+
+    if (updateData.hoursWorked) {
+      updateData.hoursWorked = parseFloat(updateData.hoursWorked);
     }
 
     const timeEntry = await timeEntryService.update(id, updateData, userId);
-    sendSuccess(res, timeEntry, 'Time entry updated successfully');
+    return sendSuccess(res, timeEntry, 'Time entry updated successfully');
   } catch (error: any) {
     logger.error('Error in updateTimeEntry controller', { error });
     
-    if (error.message.includes('must be between')) {
-      return sendError(res, error.message, 400);
+    if (error.message.includes('not found')) {
+      return sendError(res, 'NOT_FOUND', error.message, 404);
     }
     
-    sendError(res, error.message);
+    return sendError(res, 'UPDATE_ERROR', error.message || 'Failed to update time entry');
   }
 };
 
@@ -312,11 +232,105 @@ export const deleteTimeEntry = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
+    if (!id) {
+      return sendError(res, 'VALIDATION_ERROR', 'Time entry ID is required', 400);
+    }
+
     await timeEntryService.deleteTimeEntry(id);
-    sendSuccess(res, null, 'Time entry deleted successfully');
+    return sendSuccess(res, { id }, 'Time entry deleted successfully');
   } catch (error: any) {
     logger.error('Error in deleteTimeEntry controller', { error });
-    sendError(res, error.message);
+    
+    if (error.message.includes('not found')) {
+      return sendError(res, 'NOT_FOUND', error.message, 404);
+    }
+    
+    return sendError(res, 'DELETE_ERROR', error.message || 'Failed to delete time entry');
+  }
+};
+
+/**
+ * Bulk create time entries
+ * POST /api/v1/time-entries/bulk
+ * Body: { entries: [{ employeeId, date, projectId, hoursWorked, ... }] }
+ */
+export const bulkCreateTimeEntries = async (req: Request, res: Response) => {
+  try {
+    const { entries } = req.body;
+    const userId = req.user?.id;
+
+    if (!entries || !Array.isArray(entries) || entries.length === 0) {
+      return sendError(res, 'VALIDATION_ERROR', 'entries array is required', 400);
+    }
+
+    if (!userId) {
+      return sendError(res, 'AUTH_ERROR', 'User not authenticated', 401);
+    }
+
+    // Process and validate all entries
+    const processedEntries = entries.map((entry: any) => {
+      const dateObj = new Date(entry.date);
+      if (isNaN(dateObj.getTime())) {
+        throw new Error(`Invalid date format in entry for employee ${entry.employeeId}`);
+      }
+
+      const processed: any = {
+        employeeId: entry.employeeId,
+        date: dateObj,
+        projectId: entry.projectId,
+        hoursWorked: parseFloat(entry.hoursWorked),
+        workType: entry.workType,
+        description: entry.description,
+        taskPerformed: entry.taskPerformed,
+      };
+
+      if (entry.startTime) {
+        const startTimeObj = new Date(entry.startTime);
+        if (!isNaN(startTimeObj.getTime())) {
+          processed.startTime = startTimeObj;
+        }
+      }
+
+      if (entry.endTime) {
+        const endTimeObj = new Date(entry.endTime);
+        if (!isNaN(endTimeObj.getTime())) {
+          processed.endTime = endTimeObj;
+        }
+      }
+
+      return processed;
+    });
+
+    const timeEntries = await timeEntryService.bulkCreate(processedEntries, userId);
+    return sendCreated(res, timeEntries, 'Time entries created successfully');
+  } catch (error: any) {
+    logger.error('Error in bulkCreateTimeEntries controller', { error });
+    return sendError(res, 'BULK_CREATE_ERROR', error.message || 'Failed to bulk create time entries');
+  }
+};
+
+/**
+ * Calculate day total for employee
+ * GET /api/v1/time-entries/:employeeId/:date/total
+ */
+export const calculateDayTotal = async (req: Request, res: Response) => {
+  try {
+    const { employeeId, date } = req.params;
+
+    if (!employeeId || !date) {
+      return sendError(res, 'VALIDATION_ERROR', 'employeeId and date parameters are required', 400);
+    }
+
+    const dateObj = new Date(date);
+    if (isNaN(dateObj.getTime())) {
+      return sendError(res, 'VALIDATION_ERROR', 'Invalid date format', 400);
+    }
+
+    const total = await timeEntryService.calculateDayTotal(employeeId, dateObj);
+    return sendSuccess(res, { employeeId, date, totalHours: total }, 'Day total calculated successfully');
+  } catch (error: any) {
+    logger.error('Error in calculateDayTotal controller', { error });
+    return sendError(res, 'CALCULATION_ERROR', error.message || 'Failed to calculate day total');
   }
 };
 
@@ -327,44 +341,75 @@ export const deleteTimeEntry = async (req: Request, res: Response) => {
 export const approveTimeEntry = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
+
+    if (!id) {
+      return sendError(res, 'VALIDATION_ERROR', 'Time entry ID is required', 400);
+    }
 
     if (!userId) {
-      return sendError(res, 'User not authenticated', 401);
+      return sendError(res, 'AUTH_ERROR', 'User not authenticated', 401);
     }
 
     const timeEntry = await timeEntryService.approve(id, userId);
-    sendSuccess(res, timeEntry, 'Time entry approved successfully');
+    return sendSuccess(res, timeEntry, 'Time entry approved successfully');
   } catch (error: any) {
     logger.error('Error in approveTimeEntry controller', { error });
-    sendError(res, error.message);
+    
+    if (error.message.includes('not found')) {
+      return sendError(res, 'NOT_FOUND', error.message, 404);
+    }
+    
+    return sendError(res, 'APPROVAL_ERROR', error.message || 'Failed to approve time entry');
   }
 };
 
 /**
  * Reject a time entry
  * PUT /api/v1/time-entries/:id/reject
- * Body: { reason }
+ * Body: { reason: string }
  */
 export const rejectTimeEntry = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
 
-    if (!reason) {
-      return sendError(res, 'Reason is required for rejection', 400);
+    if (!id) {
+      return sendError(res, 'VALIDATION_ERROR', 'Time entry ID is required', 400);
     }
 
     if (!userId) {
-      return sendError(res, 'User not authenticated', 401);
+      return sendError(res, 'AUTH_ERROR', 'User not authenticated', 401);
+    }
+
+    if (!reason) {
+      return sendError(res, 'VALIDATION_ERROR', 'Rejection reason is required', 400);
     }
 
     const timeEntry = await timeEntryService.reject(id, userId, reason);
-    sendSuccess(res, timeEntry, 'Time entry rejected successfully');
+    return sendSuccess(res, timeEntry, 'Time entry rejected successfully');
   } catch (error: any) {
     logger.error('Error in rejectTimeEntry controller', { error });
-    sendError(res, error.message);
+    
+    if (error.message.includes('not found')) {
+      return sendError(res, 'NOT_FOUND', error.message, 404);
+    }
+    
+    return sendError(res, 'REJECTION_ERROR', error.message || 'Failed to reject time entry');
   }
 };
 
+/**
+ * Get unapproved time entries
+ * GET /api/v1/time-entries/unapproved
+ */
+export const getUnapprovedEntries = async (_req: Request, res: Response) => {
+  try {
+    const timeEntries = await timeEntryService.getUnapprovedEntries();
+    return sendSuccess(res, timeEntries, 'Unapproved time entries retrieved successfully');
+  } catch (error: any) {
+    logger.error('Error in getUnapprovedEntries controller', { error });
+    return sendError(res, 'FETCH_ERROR', error.message || 'Failed to fetch unapproved entries');
+  }
+};

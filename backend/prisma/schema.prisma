@@ -43,7 +43,10 @@ model User {
   sign_ins_signed_out     DailySignIn[]     @relation("SignInSignedOutBy")
   time_entries_created    TimeEntry[]       @relation("TimeEntryCreatedBy")
   time_entries_approved   TimeEntry[]       @relation("TimeEntryApprovedBy")
-  timesheets_approved     WeeklyTimesheet[]
+  timesheets_created      Timesheet[]       @relation("TimesheetCreatedBy")
+  timesheets_submitted    Timesheet[]       @relation("TimesheetSubmittedBy")
+  timesheets_approved_by  Timesheet[]       @relation("TimesheetApprovedBy")
+  weekly_timesheets_approved WeeklyTimesheet[]
 
   @@index([email])
   @@index([role])
@@ -436,18 +439,66 @@ model DailySignIn {
   // Link to time entries
   time_entries TimeEntry[]
 
-  @@unique([employee_id, date])
+  // Removed @@unique([employee_id, date]) to allow multiple sign-ins per day
+  // (e.g., employee leaves early then returns, or works multiple job sites)
   @@index([date])
   @@index([employee_id])
+  @@index([employee_id, date]) // Added composite index for queries
   @@index([signed_in_by])
   @@index([project_id])
   @@map("daily_sign_ins")
 }
 
-// Time Keeping Module - Part 2: Project Time Allocation
+// Time Keeping Module - Part 2a: Timesheet (Container for daily time entries)
+// A timesheet groups time entries for multiple employees on a specific date
+model Timesheet {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Date this timesheet covers
+  date DateTime @db.Date
+
+  // Status
+  status String @default("DRAFT") // DRAFT, SUBMITTED, APPROVED
+
+  // Description/Notes for this timesheet
+  title String?
+  notes String? @db.Text
+
+  // Time entries in this timesheet
+  time_entries TimeEntry[]
+
+  // Submission
+  submitted_at      DateTime? @db.Timestamptz(6)
+  submitted_by      String?   @db.Uuid
+  submitted_by_user User?     @relation("TimesheetSubmittedBy", fields: [submitted_by], references: [id])
+
+  // Approval
+  approved_at      DateTime? @db.Timestamptz(6)
+  approved_by      String?   @db.Uuid
+  approved_by_user User?     @relation("TimesheetApprovedBy", fields: [approved_by], references: [id])
+
+  // Audit
+  created_by      String   @db.Uuid
+  created_by_user User     @relation("TimesheetCreatedBy", fields: [created_by], references: [id])
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @updatedAt @db.Timestamptz(6)
+  updated_by      String?  @db.Uuid
+
+  @@index([date])
+  @@index([status])
+  @@index([created_by])
+  @@index([date, status])
+  @@map("timesheets")
+}
+
+// Time Keeping Module - Part 2b: Project Time Allocation
 // Tracks hours worked on specific projects
 model TimeEntry {
   id String @id @default(uuid()) @db.Uuid
+
+  // Link to parent timesheet (optional - entries can exist without a timesheet)
+  timesheet_id String?    @db.Uuid
+  timesheet    Timesheet? @relation(fields: [timesheet_id], references: [id], onDelete: SetNull)
 
   // Employee and date
   employee_id String   @db.Uuid
@@ -477,14 +528,14 @@ model TimeEntry {
   total_cost  Decimal? @db.Decimal(10, 2)
 
   // Link to sign-in (if they signed in that day)
-  sign_in_id String?       @db.Uuid
+  sign_in_id String?      @db.Uuid
   sign_in    DailySignIn? @relation(fields: [sign_in_id], references: [id])
 
   // Status
-  status             String    @default("PENDING") // PENDING, APPROVED, REJECTED
-  approved_by        String?   @db.Uuid
-  approved_by_user   User?     @relation("TimeEntryApprovedBy", fields: [approved_by], references: [id])
-  approved_at        DateTime? @db.Timestamptz(6)
+  status           String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  approved_by      String?   @db.Uuid
+  approved_by_user User?     @relation("TimeEntryApprovedBy", fields: [approved_by], references: [id])
+  approved_at      DateTime? @db.Timestamptz(6)
 
   // Audit
   created_by      String   @db.Uuid
@@ -493,6 +544,7 @@ model TimeEntry {
   updated_at      DateTime @updatedAt @db.Timestamptz(6)
   updated_by      String?  @db.Uuid
 
+  @@index([timesheet_id])
   @@index([employee_id, date])
   @@index([project_id, date])
   @@index([date])

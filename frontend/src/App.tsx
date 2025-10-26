@@ -25,9 +25,7 @@ const ProjectForm = lazy(() => import('./pages/Projects/ProjectForm'));
 const ProjectDetail = lazy(() => import('./pages/Projects/ProjectDetail'));
 const DocumentBrowser = lazy(() => import('./pages/Documents/DocumentBrowser'));
 const EmployeeDirectory = lazy(() => import('./pages/EmployeeDirectory'));
-const SignInSheet = lazy(() => import('./pages/TimeKeeping/SignInSheet'));
-const TimeEntryManagement = lazy(() => import('./pages/TimeKeeping/TimeEntryManagement'));
-const TimeApproval = lazy(() => import('./pages/TimeKeeping/TimeApproval'));
+const TimeKeeping = lazy(() => import('./pages/TimeKeeping'));
 
 // Loading Fallback Component
 const LoadingFallback: React.FC = () => (
@@ -289,31 +287,11 @@ function App() {
 
           {/* Time Keeping Routes */}
           <Route 
-            path="/timekeeping/sign-in" 
+            path="/timekeeping" 
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <SignInSheet />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route 
-            path="/timekeeping/time-entries" 
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <TimeEntryManagement />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route 
-            path="/timekeeping/approval" 
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <TimeApproval />
+                  <TimeKeeping />
                 </AppLayout>
               </ProtectedRoute>
             }

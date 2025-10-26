@@ -178,6 +178,37 @@ export const authorize = (resource: string, action: string) => {
           create: ['SUPER_ADMIN'],
           update: ['SUPER_ADMIN', 'OFFICE_ADMIN'],
           delete: ['SUPER_ADMIN']
+        },
+        timesheets: {
+          read: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR'],
+          create: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR'],
+          update: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR'],
+          delete: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER'],
+          approve: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER']
+        },
+        quotes: {
+          read: ['SUPER_ADMIN', 'OFFICE_ADMIN'],
+          create: ['SUPER_ADMIN', 'OFFICE_ADMIN'],
+          update: ['SUPER_ADMIN', 'OFFICE_ADMIN'],
+          delete: ['SUPER_ADMIN', 'OFFICE_ADMIN']
+        },
+        employees: {
+          read: ['SUPER_ADMIN', 'OFFICE_ADMIN'],
+          create: ['SUPER_ADMIN', 'OFFICE_ADMIN'],
+          update: ['SUPER_ADMIN', 'OFFICE_ADMIN'],
+          delete: ['SUPER_ADMIN', 'OFFICE_ADMIN']
+        },
+        photos: {
+          read: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR', 'FIELD_WORKER', 'CLIENT_READ_ONLY'],
+          create: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR', 'FIELD_WORKER'],
+          update: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR'],
+          delete: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER']
+        },
+        documents: {
+          read: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR'],
+          create: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR'],
+          update: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER', 'FIELD_SUPERVISOR'],
+          delete: ['SUPER_ADMIN', 'OFFICE_ADMIN', 'PROJECT_MANAGER']
         }
       };
 

@@ -38,11 +38,10 @@ export const useSignInStore = create<SignInState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const signIns = await signInService.getTodaySignIns();
-      set({ signIns, isLoading: false });
+      set({ signIns: signIns || [], isLoading: false });
     } catch (error: any) {
       const errorMessage = error?.response?.data?.error?.message || error?.message || 'Failed to fetch sign-ins';
-      set({ error: errorMessage, isLoading: false });
-      throw error;
+      set({ error: errorMessage, isLoading: false, signIns: [] });
     }
   },
 
@@ -51,11 +50,10 @@ export const useSignInStore = create<SignInState>((set, get) => ({
     set({ isLoading: true, error: null, selectedDate: date });
     try {
       const signIns = await signInService.getSignInsForDate(date, filters);
-      set({ signIns, isLoading: false });
+      set({ signIns: signIns || [], isLoading: false });
     } catch (error: any) {
       const errorMessage = error?.response?.data?.error?.message || error?.message || 'Failed to fetch sign-ins';
-      set({ error: errorMessage, isLoading: false });
-      throw error;
+      set({ error: errorMessage, isLoading: false, signIns: [] });
     }
   },
 
@@ -64,11 +62,10 @@ export const useSignInStore = create<SignInState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const activeSignIns = await signInService.getActiveSignIns();
-      set({ activeSignIns, isLoading: false });
+      set({ activeSignIns: activeSignIns || [], isLoading: false });
     } catch (error: any) {
       const errorMessage = error?.response?.data?.error?.message || error?.message || 'Failed to fetch active sign-ins';
-      set({ error: errorMessage, isLoading: false });
-      throw error;
+      set({ error: errorMessage, isLoading: false, activeSignIns: [] });
     }
   },
 

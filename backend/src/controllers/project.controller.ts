@@ -26,6 +26,7 @@ export const getProjects = async (req: AuthRequest, res: Response): Promise<void
     const {
       status,
       type,
+      billingType,
       clientId,
       createdBy,
       search,
@@ -42,6 +43,7 @@ export const getProjects = async (req: AuthRequest, res: Response): Promise<void
     
     if (status) filters.status = status as any;
     if (type) filters.type = type as any;
+    if (billingType) filters.billingType = billingType as string;
     if (clientId) filters.clientId = clientId as string;
     if (createdBy) filters.createdBy = createdBy as string;
     if (search) filters.search = search as string;
