@@ -1,0 +1,670 @@
+// Prisma Schema for Electrical Construction Project Management System
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique
+  password_hash String
+  role          UserRole  @default(FIELD_WORKER)
+  first_name    String
+  last_name     String
+  phone         String?
+  avatar_url    String?
+  is_active     Boolean   @default(true)
+  last_login    DateTime? @db.Timestamptz(6)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @updatedAt @db.Timestamptz(6)
+  deleted_at    DateTime? @db.Timestamptz(6)
+
+  // Relations
+  created_projects Project[]       @relation("CreatedProjects")
+  updated_projects Project[]       @relation("UpdatedProjects")
+  project_members  ProjectMember[]
+  created_clients  Client[]        @relation("CreatedClients")
+  updated_clients  Client[]        @relation("UpdatedClients")
+  uploaded_files   File[]
+  daily_logs       DailyLog[]
+  created_quotes   Quote[]         @relation("CreatedQuotes")
+  updated_quotes   Quote[]         @relation("UpdatedQuotes")
+  employee         Employee?       @relation("EmployeeUser")
+
+  // Time tracking relationships
+  sign_ins_created        DailySignIn[]     @relation("SignInCreatedBy")
+  sign_ins_signed_out     DailySignIn[]     @relation("SignInSignedOutBy")
+  time_entries_created    TimeEntry[]       @relation("TimeEntryCreatedBy")
+  time_entries_approved   TimeEntry[]       @relation("TimeEntryApprovedBy")
+  timesheets_created      Timesheet[]       @relation("TimesheetCreatedBy")
+  timesheets_submitted    Timesheet[]       @relation("TimesheetSubmittedBy")
+  timesheets_approved_by  Timesheet[]       @relation("TimesheetApprovedBy")
+  weekly_timesheets_approved WeeklyTimesheet[]
+
+  @@index([email])
+  @@index([role])
+  @@index([is_active])
+  @@index([created_at])
+  @@index([deleted_at])
+  // Composite indexes for common query patterns
+  @@index([is_active, role]) // Filter active users by role
+  @@index([role, created_at]) // Sort users by role and creation date
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  PROJECT_MANAGER
+  FIELD_SUPERVISOR
+  OFFICE_ADMIN
+  FIELD_WORKER
+  CLIENT_READ_ONLY
+}
+
+// Client Management
+model Client {
+  id         String     @id @default(uuid()) @db.Uuid
+  name       String
+  type       ClientType
+  address    String?
+  phone      String?
+  email      String?
+  website    String?
+  tax_id     String?
+  notes      String?
+  created_by String     @db.Uuid
+  updated_by String     @db.Uuid
+  created_at DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at DateTime   @updatedAt @db.Timestamptz(6)
+  deleted_at DateTime?  @db.Timestamptz(6)
+
+  // Relations
+  creator  User            @relation("CreatedClients", fields: [created_by], references: [id])
+  updater  User            @relation("UpdatedClients", fields: [updated_by], references: [id])
+  projects Project[]
+  quotes   Quote[]
+  contacts ClientContact[]
+
+  @@index([name])
+  @@index([type])
+  @@index([created_by])
+  @@index([created_at])
+  @@index([deleted_at])
+  // Composite indexes for common query patterns
+  @@index([type, created_at]) // Filter by type and sort by date
+  @@index([deleted_at, name]) // Active clients sorted by name
+  @@map("clients")
+}
+
+enum ClientType {
+  GENERAL_CONTRACTOR
+  DEVELOPER
+  HOMEOWNER
+  COMMERCIAL
+  OTHER
+}
+
+model ClientContact {
+  id         String   @id @default(uuid()) @db.Uuid
+  client_id  String   @db.Uuid
+  name       String
+  title      String?
+  phone      String?
+  email      String?
+  is_primary Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  client   Client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  projects Project[]
+
+  @@index([client_id])
+  @@index([is_primary])
+  @@map("client_contacts")
+}
+
+// Project Management
+model Project {
+  id                 String        @id @default(uuid()) @db.Uuid
+  name               String
+  project_number     String        @unique
+  client_id          String        @db.Uuid
+  contact_id         String?       @db.Uuid
+  status             ProjectStatus @default(QUOTED)
+  type               ProjectType
+  billing_type       BillingType   @default(TIME_AND_MATERIALS)
+  location           String?
+  address            String?
+  latitude           Float?
+  longitude          Float?
+  start_date         DateTime?     @db.Timestamptz(6)
+  end_date           DateTime?     @db.Timestamptz(6)
+  estimated_end_date DateTime?     @db.Timestamptz(6)
+  actual_end_date    DateTime?     @db.Timestamptz(6)
+  budget             Decimal?      @db.Decimal(12, 2)
+  actual_cost        Decimal?      @db.Decimal(12, 2)
+  description        String?
+  created_by         String        @db.Uuid
+  updated_by         String        @db.Uuid
+  created_at         DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime      @updatedAt @db.Timestamptz(6)
+  deleted_at         DateTime?     @db.Timestamptz(6)
+
+  // Relations
+  client     Client           @relation(fields: [client_id], references: [id])
+  contact    ClientContact?   @relation(fields: [contact_id], references: [id])
+  creator    User             @relation("CreatedProjects", fields: [created_by], references: [id])
+  updater    User             @relation("UpdatedProjects", fields: [updated_by], references: [id])
+  members    ProjectMember[]
+  files      File[]
+  daily_logs DailyLog[]
+  expenses   ProjectExpense[]
+
+  // Time tracking relationships
+  sign_ins     DailySignIn[]
+  time_entries TimeEntry[]
+
+  @@index([project_number])
+  @@index([client_id])
+  @@index([status])
+  @@index([type])
+  @@index([billing_type])
+  @@index([created_by])
+  @@index([start_date])
+  @@index([end_date])
+  @@index([budget])
+  @@index([actual_cost])
+  @@index([created_at])
+  @@index([deleted_at])
+  // Composite indexes for common query patterns
+  @@index([status, start_date]) // Active projects by start date
+  @@index([client_id, status]) // Client's projects by status
+  @@index([deleted_at, status, start_date]) // Active projects sorted
+  @@index([type, status]) // Projects filtered by type and status
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  QUOTED
+  AWARDED
+  IN_PROGRESS
+  INSPECTION
+  COMPLETE
+  ON_HOLD
+  CANCELLED
+}
+
+enum ProjectType {
+  COMMERCIAL
+  RESIDENTIAL
+  INDUSTRIAL
+  MAINTENANCE
+  OTHER
+}
+
+enum BillingType {
+  TIME_AND_MATERIALS
+  LUMP_SUM
+  SERVICE_CALL
+}
+
+model ProjectMember {
+  id          String   @id @default(uuid()) @db.Uuid
+  project_id  String   @db.Uuid
+  user_id     String   @db.Uuid
+  role        String
+  assigned_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  project    Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  Employee   Employee? @relation(fields: [employeeId], references: [id])
+  employeeId String?   @db.Uuid
+
+  @@unique([project_id, user_id])
+  @@index([project_id])
+  @@index([user_id])
+  @@map("project_members")
+}
+
+model ProjectExpense {
+  id          String   @id @default(uuid()) @db.Uuid
+  project_id  String   @db.Uuid
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  category    String
+  date        DateTime @db.Timestamptz(6)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@index([project_id])
+  @@index([date])
+  @@index([category])
+  @@map("project_expenses")
+}
+
+// File Management
+model File {
+  id                String       @id @default(uuid()) @db.Uuid
+  storage_path      String
+  original_filename String
+  mime_type         String
+  file_size         Int
+  checksum          String?
+  category          FileCategory
+  project_id        String?      @db.Uuid
+  daily_log_id      String?      @db.Uuid
+  uploaded_by       String       @db.Uuid
+  uploaded_at       DateTime     @default(now()) @db.Timestamptz(6)
+  version_number    Int          @default(1)
+  parent_file_id    String?      @db.Uuid
+  tags              String[]
+  description       String?
+
+  // Photo-specific fields
+  thumbnail_path String?
+  width          Int?
+  height         Int?
+  exif_data      Json?
+
+  // Document-specific fields
+  page_count Int?
+
+  // Organization fields
+  folder_path String?
+  is_favorite Boolean @default(false)
+
+  // Metadata
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @updatedAt @db.Timestamptz(6)
+  deleted_at DateTime? @db.Timestamptz(6)
+
+  // Relations
+  project     Project?  @relation(fields: [project_id], references: [id])
+  daily_log   DailyLog? @relation(fields: [daily_log_id], references: [id])
+  uploader    User      @relation(fields: [uploaded_by], references: [id])
+  parent_file File?     @relation("FileVersions", fields: [parent_file_id], references: [id])
+  child_files File[]    @relation("FileVersions")
+
+  @@index([project_id])
+  @@index([daily_log_id])
+  @@index([uploaded_by])
+  @@index([category])
+  @@index([uploaded_at])
+  @@index([deleted_at])
+  @@index([is_favorite])
+  @@index([folder_path])
+  // Composite indexes for common query patterns
+  @@index([project_id, category, uploaded_at]) // Project files by category and date
+  @@index([deleted_at, project_id]) // Active project files
+  @@index([category, is_favorite]) // Favorite files by category
+  @@map("files")
+}
+
+enum FileCategory {
+  DOCUMENT
+  PHOTO
+  PLAN
+  SPEC
+  PERMIT
+  CONTRACT
+  INVOICE
+  RECEIPT
+  REPORT
+  OTHER
+}
+
+// Daily Logs
+model DailyLog {
+  id              String   @id @default(uuid()) @db.Uuid
+  project_id      String   @db.Uuid
+  date            DateTime @db.Timestamptz(6)
+  weather         String?
+  crew_members    Json?
+  hours_worked    Json?
+  work_performed  String
+  materials_used  Json?
+  equipment_used  String?
+  issues          String?
+  inspector_visit String?
+  created_by      String   @db.Uuid
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  project    Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  creator    User      @relation(fields: [created_by], references: [id])
+  files      File[]
+  Employee   Employee? @relation(fields: [employeeId], references: [id])
+  employeeId String?   @db.Uuid
+
+  @@index([project_id])
+  @@index([date])
+  @@index([created_by])
+  @@index([created_at])
+  // Composite indexes for common query patterns
+  @@index([project_id, date]) // Project logs by date (most common query)
+  @@index([date, project_id]) // Date range queries across projects
+  @@map("daily_logs")
+}
+
+// Quote/Bid Management
+model Quote {
+  id           String      @id @default(uuid()) @db.Uuid
+  quote_number String      @unique
+  client_id    String      @db.Uuid
+  project_name String
+  status       QuoteStatus @default(DRAFT)
+  line_items   Json
+  subtotal     Decimal     @db.Decimal(12, 2)
+  tax          Decimal?    @db.Decimal(12, 2)
+  total        Decimal     @db.Decimal(12, 2)
+  notes        String?
+  valid_until  DateTime?   @db.Timestamptz(6)
+  created_by   String      @db.Uuid
+  updated_by   String      @db.Uuid
+  created_at   DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime    @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  client  Client @relation(fields: [client_id], references: [id])
+  creator User   @relation("CreatedQuotes", fields: [created_by], references: [id])
+  updater User   @relation("UpdatedQuotes", fields: [updated_by], references: [id])
+
+  @@index([quote_number])
+  @@index([client_id])
+  @@index([status])
+  @@index([created_by])
+  @@index([created_at])
+  // Composite indexes for common query patterns
+  @@index([client_id, status]) // Client quotes by status
+  @@index([status, created_at]) // Status filtered quotes sorted by date
+  @@index([created_by, created_at]) // User's quotes sorted by date
+  @@map("quotes")
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+// Time Keeping Module - Part 1: Daily Sign-In Sheet
+// Tracks when employees sign in/out each day (attendance)
+model DailySignIn {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Employee who signed in
+  employee_id String   @db.Uuid
+  employee    Employee @relation(fields: [employee_id], references: [id])
+
+  // Date and times
+  date           DateTime  @db.Date
+  sign_in_time   DateTime  @db.Timestamptz(6)
+  sign_out_time  DateTime? @db.Timestamptz(6)
+
+  // Who signed them in (foreman)
+  signed_in_by     String @db.Uuid
+  signed_in_by_user User   @relation("SignInCreatedBy", fields: [signed_in_by], references: [id])
+
+  // Who signed them out (if different)
+  signed_out_by      String? @db.Uuid
+  signed_out_by_user User?   @relation("SignInSignedOutBy", fields: [signed_out_by], references: [id])
+
+  // Location/Site
+  location   String?  // Job site address or name
+  project_id String?  @db.Uuid // Primary project for the day (optional)
+  project    Project? @relation(fields: [project_id], references: [id])
+
+  // Notes
+  notes String? @db.Text
+
+  // Audit
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  // Link to time entries
+  time_entries TimeEntry[]
+
+  // Removed @@unique([employee_id, date]) to allow multiple sign-ins per day
+  // (e.g., employee leaves early then returns, or works multiple job sites)
+  @@index([date])
+  @@index([employee_id])
+  @@index([employee_id, date]) // Added composite index for queries
+  @@index([signed_in_by])
+  @@index([project_id])
+  @@map("daily_sign_ins")
+}
+
+// Time Keeping Module - Part 2a: Timesheet (Container for daily time entries)
+// A timesheet groups time entries for multiple employees on a specific date
+model Timesheet {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Date this timesheet covers
+  date DateTime @db.Date
+
+  // Status
+  status String @default("DRAFT") // DRAFT, SUBMITTED, APPROVED
+
+  // Description/Notes for this timesheet
+  title String?
+  notes String? @db.Text
+
+  // Time entries in this timesheet
+  time_entries TimeEntry[]
+
+  // Submission
+  submitted_at      DateTime? @db.Timestamptz(6)
+  submitted_by      String?   @db.Uuid
+  submitted_by_user User?     @relation("TimesheetSubmittedBy", fields: [submitted_by], references: [id])
+
+  // Approval
+  approved_at      DateTime? @db.Timestamptz(6)
+  approved_by      String?   @db.Uuid
+  approved_by_user User?     @relation("TimesheetApprovedBy", fields: [approved_by], references: [id])
+
+  // Audit
+  created_by      String   @db.Uuid
+  created_by_user User     @relation("TimesheetCreatedBy", fields: [created_by], references: [id])
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @updatedAt @db.Timestamptz(6)
+  updated_by      String?  @db.Uuid
+
+  @@index([date])
+  @@index([status])
+  @@index([created_by])
+  @@index([date, status])
+  @@map("timesheets")
+}
+
+// Time Keeping Module - Part 2b: Project Time Allocation
+// Tracks hours worked on specific projects
+model TimeEntry {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Link to parent timesheet (optional - entries can exist without a timesheet)
+  timesheet_id String?    @db.Uuid
+  timesheet    Timesheet? @relation(fields: [timesheet_id], references: [id], onDelete: SetNull)
+
+  // Employee and date
+  employee_id String   @db.Uuid
+  employee    Employee @relation(fields: [employee_id], references: [id])
+  date        DateTime @db.Date
+
+  // Project allocation
+  project_id String  @db.Uuid
+  project    Project @relation(fields: [project_id], references: [id])
+
+  // Hours worked
+  hours_worked Decimal @db.Decimal(5, 2) // e.g., 8.50 hours
+
+  // Time period (optional)
+  start_time DateTime? @db.Timestamptz(6)
+  end_time   DateTime? @db.Timestamptz(6)
+
+  // Type of work
+  work_type String? // Regular, Overtime, Double Time
+
+  // Description
+  description    String? @db.Text
+  task_performed String? // What they worked on
+
+  // Rates (optional - for cost tracking)
+  hourly_rate Decimal? @db.Decimal(10, 2)
+  total_cost  Decimal? @db.Decimal(10, 2)
+
+  // Link to sign-in (if they signed in that day)
+  sign_in_id String?      @db.Uuid
+  sign_in    DailySignIn? @relation(fields: [sign_in_id], references: [id])
+
+  // Status
+  status           String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  approved_by      String?   @db.Uuid
+  approved_by_user User?     @relation("TimeEntryApprovedBy", fields: [approved_by], references: [id])
+  approved_at      DateTime? @db.Timestamptz(6)
+
+  // Audit
+  created_by      String   @db.Uuid
+  created_by_user User     @relation("TimeEntryCreatedBy", fields: [created_by], references: [id])
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @updatedAt @db.Timestamptz(6)
+  updated_by      String?  @db.Uuid
+
+  @@index([timesheet_id])
+  @@index([employee_id, date])
+  @@index([project_id, date])
+  @@index([date])
+  @@index([status])
+  @@index([created_by])
+  @@index([sign_in_id])
+  @@map("time_entries")
+}
+
+// Time Keeping Module - Weekly Timesheet Summary
+// For approval workflow and weekly reports
+model WeeklyTimesheet {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Employee and week
+  employee_id     String   @db.Uuid
+  employee        Employee @relation(fields: [employee_id], references: [id])
+  week_start_date DateTime @db.Date
+  week_end_date   DateTime @db.Date
+
+  // Totals
+  total_hours    Decimal @db.Decimal(6, 2)
+  regular_hours  Decimal @db.Decimal(6, 2)
+  overtime_hours Decimal @db.Decimal(6, 2)
+
+  // Status
+  status             String    @default("DRAFT") // DRAFT, SUBMITTED, APPROVED, REJECTED
+  submitted_at       DateTime? @db.Timestamptz(6)
+  approved_by        String?   @db.Uuid
+  approved_by_user   User?     @relation(fields: [approved_by], references: [id])
+  approved_at        DateTime? @db.Timestamptz(6)
+
+  // Notes
+  notes String? @db.Text
+
+  // Audit
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([employee_id, week_start_date])
+  @@index([week_start_date])
+  @@index([status])
+  @@index([employee_id])
+  @@index([approved_by])
+  @@map("weekly_timesheets")
+}
+
+// Employee Directory (Module 8)
+model Employee {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Current Required Fields (Phase 1 - MVP)
+  first_name     String
+  last_name      String
+  classification String // Job role: Electrician, Foreman, Apprentice, Office Staff, etc.
+
+  // User Relationship (Optional - links to auth system if employee has login)
+  user_id String? @unique @db.Uuid
+  user    User?   @relation("EmployeeUser", fields: [user_id], references: [id])
+
+  // Future Fields - Contact Information (Phase 2)
+  email        String?
+  phone        String?
+  mobile_phone String?
+  address      String?
+  city         String?
+  state        String?
+  zip_code     String?
+
+  // Future Fields - Personal Information (Phase 2)
+  date_of_birth DateTime? @db.Date
+
+  // Future Fields - Employment Information (Phase 2)
+  hire_date         DateTime? @db.Date
+  termination_date  DateTime? @db.Date
+  employment_status String?   @default("ACTIVE") // Active, Inactive, On Leave, Terminated
+  employee_number   String?   @unique
+
+  // Future Fields - Organizational (Phase 2)
+  department    String?
+  supervisor_id String? @db.Uuid
+
+  // Future Fields - Compensation (Phase 3 - Sensitive Data)
+  hourly_rate Decimal? @db.Decimal(10, 2)
+  salary      Decimal? @db.Decimal(12, 2)
+
+  // Future Fields - Complex Data (Phase 3)
+  emergency_contact Json? // {name, relationship, phone, email}
+  certifications    Json? // [{name, number, expiryDate, issuer, documentUrl}]
+
+  // Notes
+  notes String? @db.Text
+
+  // Relationships (for future features)
+  project_members ProjectMember[]
+  daily_logs      DailyLog[]
+
+  // Time tracking relationships
+  sign_ins          DailySignIn[]
+  time_entries      TimeEntry[]
+  weekly_timesheets WeeklyTimesheet[]
+
+  // Audit Fields
+  is_active  Boolean   @default(true)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @updatedAt @db.Timestamptz(6)
+  created_by String    @db.Uuid
+  updated_by String    @db.Uuid
+  deleted_at DateTime? @db.Timestamptz(6)
+
+  @@index([last_name, first_name])
+  @@index([classification])
+  @@index([employment_status])
+  @@index([is_active])
+  @@index([deleted_at])
+  @@index([user_id])
+  @@index([employee_number])
+  @@index([created_at])
+  // Composite indexes for common queries
+  @@index([is_active, classification]) // Active employees by role
+  @@index([employment_status, hire_date]) // Employment status reports
+  @@map("employees")
+}
