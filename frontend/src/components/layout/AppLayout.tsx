@@ -38,6 +38,7 @@ import { useAuthStore } from '../../store';
 import { useMobileView, useCompactView, usePermissions } from '../../hooks';
 import { Feature } from '../../utils/permissions';
 import { MobileBottomNav } from './MobileBottomNav';
+import logo from '../../assets/images/iie-logo.png';
 
 const drawerWidth = 240;
 
@@ -95,9 +96,20 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   const drawer = (
     <Box>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          Electrical PM
+      <Toolbar sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 2 }}>
+        <Box
+          component="img"
+          src={logo}
+          alt="Inman Industrial Electric"
+          sx={{
+            width: '100%',
+            maxWidth: 180,
+            height: 'auto',
+            mb: 1,
+          }}
+        />
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          CRM System
         </Typography>
       </Toolbar>
       <Divider />
@@ -157,11 +169,28 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             variant={isMobile ? 'body1' : 'h6'} 
             noWrap 
             component="div" 
-            sx={{ flexGrow: 1 }}
+            sx={{ flexGrow: 1, fontWeight: 600 }}
           >
-            {isMobile ? 'Electrical PM' : 'Electrical Construction Project Management'}
+            IIE CRM
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ 
+              display: { xs: 'none', md: 'flex' }, 
+              alignItems: 'center',
+              gap: 1,
+              px: 2,
+              py: 0.5,
+              borderRadius: 1,
+              bgcolor: 'rgba(255, 255, 255, 0.1)',
+            }}>
+              <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                IIE
+              </Typography>
+              <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255, 255, 255, 0.3)' }} />
+              <Typography variant="caption">
+                Production v1.0.0
+              </Typography>
+            </Box>
             <Typography 
               variant="body2" 
               sx={{ 

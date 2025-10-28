@@ -23,6 +23,7 @@ import {
 } from '@mui/icons-material';
 import { useAuthStore } from '../store';
 import { ServerStatus } from '../components/common';
+import logo from '../assets/images/iie-logo.png';
 
 // Form validation interface
 interface FormErrors {
@@ -137,29 +138,6 @@ const Login: React.FC = () => {
     setShowPassword(prev => !prev);
   };
 
-  // Handle demo login
-  const handleDemoLogin = async () => {
-    setFormData({
-      email: 'admin@example.com',
-      password: 'Admin@123',
-    });
-    
-    setIsSubmitting(true);
-    setErrors({});
-
-    try {
-      await login({
-        email: 'admin@example.com',
-        password: 'Admin@123',
-      });
-    } catch (error: any) {
-      setErrors({
-        general: error.message || 'Demo login failed. Please try again.',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <Box
@@ -200,6 +178,20 @@ const Login: React.FC = () => {
           </Box>
 
           {/* Session Expired Message */}
+          {/* Logo */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+            <Box
+              component="img"
+              src={logo}
+              alt="Inman Industrial Electric"
+              sx={{
+                width: '100%',
+                maxWidth: 300,
+                height: 'auto',
+              }}
+            />
+          </Box>
+
           {sessionExpired && !error && !errors.general && (
             <Alert severity="warning" sx={{ mb: 2 }}>
               Your session has expired. Please log in again to continue.
@@ -292,28 +284,7 @@ const Login: React.FC = () => {
               )}
             </Button>
 
-            {/* Demo Login Button */}
-            <Button
-              fullWidth
-              variant="outlined"
-              size="large"
-              onClick={handleDemoLogin}
-              disabled={isSubmitting || isLoading}
-              sx={{
-                mb: 3,
-                py: 1.5,
-                fontSize: '1rem',
-              }}
-            >
-              Demo Login (Admin)
-            </Button>
           </form>
-
-          <Divider sx={{ my: 2 }}>
-            <Typography variant="body2" color="text.secondary">
-              OR
-            </Typography>
-          </Divider>
 
           {/* Additional Links */}
           <Box sx={{ textAlign: 'center' }}>
